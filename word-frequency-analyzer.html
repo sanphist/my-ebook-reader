@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Word Frequency Analyzer</title>
+  <style>
+    body { font-family: Arial, sans-serif; background-color: #e6f4ea; margin: 4px; font-size: 9px; line-height: 1.3; }
+    h1 { margin: 2px 0; font-size: 12px; }
+    textarea { width: 100%; height: 100px; margin-bottom: 4px; font-size: 10px; }
+    button { margin: 2px 2px 2px 0; padding: 3px 6px; font-size: 9px; }
+    #result { max-height: 75vh; overflow-y: auto; -webkit-overflow-scrolling: touch; border: 1px solid #aaa; scrollbar-width: auto; scrollbar-color: #888 #ccc; }
+    table { width: 100%; border-collapse: collapse; font-size: 16px; font-weight: bold; }
+    th, td { padding: 6px; text-align: left; }
+    td:first-child { width: 40px; padding-right: 4px; }
+    #filter-nav button { cursor: pointer; }
+    #result::-webkit-scrollbar { width: 18px; }
+    #result::-webkit-scrollbar-thumb { background-color: #888; border-radius: 8px; }
+    #result::-webkit-scrollbar-track { background: #ccc; }
+  </style>
+</head>
+<body>
+  <h1>📝 Word Frequency Analyzer</h1>
+  <textarea id="textInput" placeholder="Paste your text here..."></textarea><br>
+  <button onclick="analyzeText()">Analyze</button>
+  <button onclick="toggleSort()">Toggle Sort Order (Now: Asc)</button>
+  <button onclick="exportSelected()">Export Selected Words</button>
+  <button onclick="exportHighlighted()">Export Highlighted</button>
+  <button onclick="exportToExcel()">Export to Excel</button>
+  <button onclick="toggleSelectAll()">Select/Deselect All</button>
+  <label><input type="checkbox" id="hideFreq1" onchange="analyzeText()"> Hide words with frequency = 1</label>
+  <label><input type="checkbox" id="hideFreq2" onchange="analyzeText()"> Hide words with frequency ≥ 2</label>
+
+  <div id='filter-nav' style='font-size: 15px; margin: 10px 0 4px 0;'>
+    <strong>Filter A–Z: </strong>
+    <button onclick="filterByLetter('A')">A</button> <button onclick="filterByLetter('B')">B</button> <button onclick="filterByLetter('C')">C</button> <button onclick="filterByLetter('D')">D</button> <button onclick="filterByLetter('E')">E</button> <button onclick="filterByLetter('F')">F</button> <button onclick="filterByLetter('G')">G</button> <button onclick="filterByLetter('H')">H</button> <button onclick="filterByLetter('I')">I</button> <button onclick="filterByLetter('J')">J</button> <button onclick="filterByLetter('K')">K</button> <button onclick="filterByLetter('L')">L</button> <button onclick="filterByLetter('M')">M</button> <button onclick="filterByLetter('N')">N</button> <button onclick="filterByLetter('O')">O</button> <button onclick="filterByLetter('P')">P</button> <button onclick="filterByLetter('Q')">Q</button> <button onclick="filterByLetter('R')">R</button> <button onclick="filterByLetter('S')">S</button> <button onclick="filterByLetter('T')">T</button> <button onclick="filterByLetter('U')">U</button> <button onclick="filterByLetter('V')">V</button> <button onclick="filterByLetter('W')">W</button> <button onclick="filterByLetter('X')">X</button> <button onclick="filterByLetter('Y')">Y</button> <button onclick="filterByLetter('Z')">Z</button>
+    <button onclick="filterByLetter('ALL')">All</button>
+  </div>
+
+  <div id="result"></div>
+
+  <script>
+    let ascending = true;
+    let wordData = [];
+
+    function analyzeText() {
+      const text = document.getElementById("textInput").value;
+      const words = text.toLowerCase().match(/\b[a-zA-Z']+\b/g) || [];
+      const freqMap = {};
+      words.forEach(w => freqMap[w] = (freqMap[w] || 0) + 1);
+      wordData = Object.entries(freqMap);
+
+      if (document.getElementById("hideFreq1").checked) {
+        wordData = wordData.filter(([w, f]) => f !== 1);
+      }
+      if (document.getElementById("hideFreq2").checked) {
+        wordData = wordData.filter(([w, f]) => f < 2);
+      }
+
+      renderTable();
+      highlightWords();
+    }
+
+    function toggleSort() {
+      ascending = !ascending;
+      wordData.sort((a, b) => ascending ? a[1] - b[1] || a[0].localeCompare(b[0]) : b[1] - a[1] || a[0].localeCompare(b[0]));
+      renderTable();
+      highlightWords();
+    }
+
+    function renderTable() {
+      const table = ["<table><thead><tr><th></th><th>Word</th><th>Frequency</th></tr></thead><tbody>"];
+      wordData.forEach(([w, f]) => {
+        table.push(`<tr><td><input type='checkbox'></td><td>${w}</td><td>${f}</td></tr>`);
+      });
+      table.push("</tbody></table>");
+      document.getElementById("result").innerHTML = table.join("");
+    }
+
+    function toggleSelectAll() {
+      document.querySelectorAll("#result input[type='checkbox']").forEach(c => c.checked = !c.checked);
+    }
+
+    function exportSelected() {
+      const rows = document.querySelectorAll("#result tbody tr");
+      const selected = [];
+      rows.forEach(row => {
+        const cb = row.querySelector("input[type='checkbox']");
+        if (cb && cb.checked) {
+          const word = row.querySelector("td:nth-child(2)").textContent.trim();
+          const freq = row.querySelector("td:nth-child(3)").textContent.trim();
+          selected.push(`${word}\t${freq}`);
+        }
+      });
+      const blob = new Blob([selected.join("\n")], { type: 'text/plain' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "selected_words.txt";
+      link.click();
+    }
+
+    function exportHighlighted() {
+      const rows = document.querySelectorAll("#result tbody tr");
+      const result = [];
+      rows.forEach(row => {
+        const wordCell = row.querySelector("td:nth-child(2)");
+        const freqCell = row.querySelector("td:nth-child(3)");
+        if (wordCell && wordCell.style.backgroundColor.includes("yellow")) {
+          result.push(`${wordCell.textContent}\t${freqCell.textContent}`);
+        }
+      });
+      const blob = new Blob([result.join("\n")], { type: 'text/plain' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "highlighted_words.txt";
+      link.click();
+    }
+
+    function exportToExcel() {
+      let content = "Word\tFrequency\n";
+      document.querySelectorAll("#result tbody tr").forEach(row => {
+        const word = row.querySelector("td:nth-child(2)")?.textContent.trim();
+        const freq = row.querySelector("td:nth-child(3)")?.textContent.trim();
+        if (word && freq) content += `${word}\t${freq}\n`;
+      });
+      const blob = new Blob([content], { type: 'application/vnd.ms-excel' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "word_frequency.xls";
+      link.click();
+    }
+
+    function highlightWords() {
+      fetch('https://raw.githubusercontent.com/sanphist/wordlist-repo-coca60k-flitered/main/coca60k_filtered.json')
+        .then(r => r.json())
+        .then(list => {
+          document.querySelectorAll("#result td:nth-child(2)").forEach(cell => {
+            if (list.includes(cell.textContent.trim().toLowerCase())) {
+              cell.style.backgroundColor = "yellow";
+              cell.style.fontWeight = "bold";
+            }
+          });
+        });
+    }
+
+    function filterByLetter(letter) {
+      document.querySelectorAll("#result tbody tr").forEach(row => {
+        const cell = row.querySelector("td:nth-child(2)");
+        if (!cell) return;
+        const word = cell.textContent.trim().toUpperCase();
+        row.style.display = (letter === 'ALL' || word.startsWith(letter)) ? '' : 'none';
+      });
+    }
+  </script>
+
+<script>
+  // 添加手动滚动到底部按钮（可选）
+  const scrollBtn = document.createElement("button");
+  scrollBtn.textContent = "⬇ Scroll to Bottom";
+  scrollBtn.style.position = "fixed";
+  scrollBtn.style.bottom = "20px";
+  scrollBtn.style.right = "20px";
+  scrollBtn.style.zIndex = 999;
+  scrollBtn.style.padding = "10px 16px";
+  scrollBtn.style.background = "#4CAF50";
+  scrollBtn.style.color = "white";
+  scrollBtn.style.border = "none";
+  scrollBtn.style.borderRadius = "6px";
+  scrollBtn.style.fontSize = "16px";
+  scrollBtn.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
+  scrollBtn.onclick = () => {
+    const container = document.getElementById("result");
+    container.scrollTop = container.scrollHeight;
+  };
+  document.body.appendChild(scrollBtn);
+</script>
+</body>
+</html>
