@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>TXT智能阅读器 · 章节导航+字号行距+进度条</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Bookerly:wght@400;700&family=Charter:wght@400;700&family=Atkinson+Hyperlegible:wght@400;700&family=Literata:wght@400;700&family=Source+Serif+4:wght@400;700&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body {
+  background: #e9f7ef;
+  color: #232b18;
+  font-family: 'Bookerly','Georgia','serif';
+  font-size: 17px; line-height: 1.6; margin: 0; padding: 0 0 60px 0;
+}
+#topbar {
+  position: fixed; left: 0; top: 0; right: 0; height: 45px;
+  background: #e2efe4; box-shadow: 0 2px 8px #c6dec5;
+  z-index: 100; display: flex; align-items: center;
+  padding: 0 1em; font-size: 15px;
+}
+#chapter-btn, #font-btn, #size-btn {
+  font-size: 13px; padding: 2px 10px; margin-left: 9px; border: 1px solid #8ab59f;
+  background: #fff; color: #254d3a; border-radius: 9px; cursor: pointer;
+  transition: background .13s;
+}
+#chapter-list, #font-list, #size-list {
+  display: none; position: fixed; top: 46px; left: 0; right: 0; max-height: 52vh;
+  overflow-y: auto; background: #f6fbf7; border-bottom: 2px solid #bed2b9;
+  z-index: 120; font-size: 15px; box-shadow: 0 4px 20px #bbcdbb42;
+}
+#font-list { left: 140px; max-width: 330px; border-radius: 10px; border: 1px solid #a6cdb1;}
+#size-list { left: 290px; max-width: 240px; border-radius: 10px; border: 1px solid #a6cdb1;}
+#chapter-list ul, #font-list ul, #size-list ul {margin: 0; padding: 0;}
+#chapter-list li, #font-list li, #size-list li {
+  list-style: none; padding: 7px 20px; border-bottom: 1px solid #e2eae2;
+  cursor: pointer; transition: background .15s;
+  font-family: inherit;
+}
+#font-list li {padding: 7px 18px;}
+#size-list li {padding: 7px 16px;}
+#chapter-list li:hover, #font-list li:hover, #size-list li:hover {background: #dde7d8;}
+#main {max-width: 980px; margin: 58px auto 0 auto; padding: 18px;}
+.chapter-sep {
+  margin: 2em 0 1.3em 0;
+  text-align: center; color: #b0b9ae;
+  font-size: 1.08em; letter-spacing: 2px;
+}
+h2.chapter-title {
+  font-size: 1.13em;
+  color: #265930;
+  font-weight: 500;
+  letter-spacing: .7px;
+  margin: 2em 0 1.1em 0;
+  font-family: inherit;
+}
+p {margin: 0 0 0.89em 0; text-indent: 2em;}
+/* 虚拟进度条样式 */
+#vscrollbar {
+  position: fixed; right: 12px; top: 7vh; height: 86vh; width: 28px;
+  z-index: 999; display: flex; align-items: center; justify-content: center;
+  background: rgba(180,200,170,0.13);
+  border-radius: 18px;
+  touch-action: none;
+  user-select: none;
+}
+#vscrollbar.hide {display: none;}
+#vtrack {
+  position: relative; width: 12px; height: 95%; border-radius: 7px;
+  background: rgba(160,190,140,0.12);
+  margin: 0 auto;
+}
+#vthumb {
+  position: absolute; left: -4px; width: 20px; height: 48px; min-height: 26px;
+  background: #a8cc9b; border-radius: 12px;
+  box-shadow: 0 3px 8px #a1bfa660;
+  cursor: grab; display: flex; align-items: center; justify-content: center;
+  color: #3a5645; font-size: 13px; font-family: monospace;
+  font-weight: 600;
+  transition: background 0.12s;
+}
+#vthumb.dragging {background: #8ab59f;}
+#vthumb span {
+  position: absolute; left: 23px; top: 6px; font-size: 13px;
+  background: #e6f7df; color: #265930; padding: 0 7px; border-radius: 7px;
+  font-family: 'Bookerly','Georgia',serif;
+  box-shadow: 1px 1px 3px #b4cdb166;
+}
+@media (max-width:900px) { #main {max-width:98vw;} }
+@media (max-width:650px) { body {font-size:15px;} #main{padding:4px;} #chapter-list, #font-list,#size-list{font-size:13px;} #vscrollbar{right:2px; width:19px;} }
+</style>
+</head>
+<body>
+<div id="topbar">
+  <span>📄 <b>TXT智能阅读器</b></span>
+  <input type="file" id="file" accept=".txt">
+  <button id="chapter-btn" onclick="toggleChapterList()">章节</button>
+  <button id="font-btn" onclick="toggleFontList()">字体</button>
+  <button id="size-btn" onclick="toggleSizeList()">字号/行距</button>
+</div>
+<div id="chapter-list"><ul id="chapter-ul"></ul></div>
+<div id="font-list"><ul id="font-ul"></ul></div>
+<div id="size-list"><ul id="size-ul"></ul></div>
+<div id="main"><i>请上传 TXT 文件…</i></div>
+<div id="vscrollbar" class="hide">
+  <div id="vtrack">
+    <div id="vthumb"><span id="vperc"></span></div>
+  </div>
+</div>
+<script>
+// 7种专业阅读字体
+const fontList = [
+  {name:"Bookerly (Kindle)", css:"'Bookerly','Georgia',serif"},
+  {name:"Charter", css:"'Charter','Georgia',serif"},
+  {name:"Atkinson Hyperlegible", css:"'Atkinson Hyperlegible',serif"},
+  {name:"Literata (Google Books)", css:"'Literata',serif"},
+  {name:"Source Serif 4", css:"'Source Serif 4','Georgia',serif"},
+  {name:"Merriweather", css:"'Merriweather','Georgia',serif"},
+  {name:"Serif 标配", css:"'Georgia','Times New Roman',serif"},
+];
+let f_ul = document.getElementById('font-ul');
+fontList.forEach(f=>{
+  let li = document.createElement('li');
+  li.textContent = f.name;
+  li.onclick = ()=>{
+    document.body.style.fontFamily = f.css;
+    document.getElementById('main').style.fontFamily = f.css;
+    document.getElementById('font-list').style.display = 'none';
+  };
+  li.style.fontFamily = f.css;
+  f_ul.appendChild(li);
+});
+function toggleFontList() {
+  const list = document.getElementById('font-list');
+  list.style.display = list.style.display === 'block' ? 'none' : 'block';
+  document.getElementById('chapter-list').style.display = 'none';
+  document.getElementById('size-list').style.display = 'none';
+}
+
+// 字号与行距调节
+const sizeList = [
+  {label: "极小", size: 15, lh: 1.44},
+  {label: "偏小", size: 16, lh: 1.55},
+  {label: "标准", size: 17, lh: 1.63},
+  {label: "较大", size: 18.5, lh: 1.78},
+  {label: "超大", size: 20, lh: 2.05},
+];
+let s_ul = document.getElementById('size-ul');
+sizeList.forEach((sz,i)=>{
+  let li = document.createElement('li');
+  li.textContent = sz.label + ` (${sz.size}px, 行距${sz.lh})`;
+  li.onclick = ()=>{
+    document.body.style.fontSize = sz.size+"px";
+    document.body.style.lineHeight = sz.lh;
+    document.getElementById('main').style.fontSize = sz.size+"px";
+    document.getElementById('main').style.lineHeight = sz.lh;
+    document.getElementById('size-list').style.display = 'none';
+  };
+  s_ul.appendChild(li);
+});
+function toggleSizeList() {
+  const list = document.getElementById('size-list');
+  list.style.display = list.style.display === 'block' ? 'none' : 'block';
+  document.getElementById('font-list').style.display = 'none';
+  document.getElementById('chapter-list').style.display = 'none';
+}
+window.onclick = e=>{
+  if (!e.target.closest('#chapter-btn') && !e.target.closest('#chapter-list'))
+    document.getElementById('chapter-list').style.display = 'none';
+  if (!e.target.closest('#font-btn') && !e.target.closest('#font-list'))
+    document.getElementById('font-list').style.display = 'none';
+  if (!e.target.closest('#size-btn') && !e.target.closest('#size-list'))
+    document.getElementById('size-list').style.display = 'none';
+};
+
+// ====== 全新章节检测：兼容各种杂志/小说 =======
+let chapters = [];
+function detectChapters(paras) {
+  let chs = [];
+  for (let i = 0; i < paras.length; ++i) {
+    let line = paras[i].trim();
+    // 分割线+标题
+    if (/^[-=]{8,}$/.test(line) && i+1<paras.length && paras[i+1].trim().length>1 && paras[i+1].length < 80) {
+      let nextline = paras[i+1].trim();
+      if (!/Contents|Copyright|index|目录|Page|TheEconomist/i.test(nextline))
+        chs.push({idx: i+1, title: nextline});
+    }
+    // 独立短行（大写或首字母大写，限制长度避免正文误判）
+    if (
+      line.length < 50 &&
+      /^[A-Z][A-Za-z0-9\s\-,'".:&]{2,}$/.test(line) &&
+      line.split(' ').length < 12 &&
+      !/copyright|page|contents/i.test(line)
+    ) {
+      chs.push({idx: i, title: line});
+    }
+  }
+  // 如果检测不到章节，默认加全书起始
+  if (chs.length < 1) chs.push({idx: 0, title: "全文开头"});
+  let out = [], seen = new Set();
+  for (let c of chs) if (!seen.has(c.idx)) {out.push(c); seen.add(c.idx);}
+  out.sort((a,b)=>a.idx-b.idx);
+  return out;
+}
+
+// 段落处理
+function renderTxt(txt) {
+  let lines = txt.replace(/\r/g,'').split('\n');
+  let paras = [];
+  let buf = [];
+  for (let l of lines) {
+    if (l.trim() === '') {
+      if (buf.length>0) { paras.push(buf.join(' ')); buf = []; }
+    } else {
+      buf.push(l.trim());
+    }
+  }
+  if (buf.length>0) paras.push(buf.join(' '));
+  paras = paras.filter(x => x.replace(/[.·—\-_=* ]+/g, '').length > 1);
+
+  chapters = detectChapters(paras);
+
+  let ul = document.getElementById('chapter-ul');
+  ul.innerHTML = '';
+  chapters.forEach((ch, i) => {
+    let li = document.createElement('li');
+    li.textContent = ch.title.length>40?ch.title.slice(0,38)+'...':ch.title;
+    li.title = ch.title;
+    li.onclick = ()=> {
+      let hlist = document.querySelectorAll('.chapter-title');
+      if (hlist[i]) hlist[i].scrollIntoView({behavior:"smooth",block:"start"});
+      document.getElementById('chapter-list').style.display = 'none';
+    };
+    ul.appendChild(li);
+  });
+
+  let html = '';
+  let chidx = 0;
+  for (let i=0; i<paras.length; ++i) {
+    let isChapter = (chidx<chapters.length && chapters[chidx].idx===i);
+    if (isChapter) { html += `<h2 class="chapter-title" id="chapter${i}">${chapters[chidx].title}</h2>`; chidx++;}
+    else if (/^[-=]{6,}$/.test(paras[i])) html += '<div class="chapter-sep">·····················</div>';
+    else html += `<p>${paras[i]}</p>`;
+  }
+  document.getElementById('main').innerHTML = html;
+  // 进度条激活
+  document.getElementById('vscrollbar').classList.remove('hide');
+  updateScrollBar();
+}
+
+// 文件选择
+document.getElementById('file').onchange = function(e) {
+  let file = e.target.files[0];
+  if (!file) return;
+  let reader = new FileReader();
+  reader.onload = function(evt) {
+    renderTxt(evt.target.result);
+    document.title = file.name.replace(/\.txt$/i,'');
+  };
+  reader.readAsText(file, 'utf-8');
+};
+
+// 虚拟进度条实现（同前）
+const vbar = document.getElementById('vscrollbar');
+const vthumb = document.getElementById('vthumb');
+const vperc = document.getElementById('vperc');
+let dragging = false, dragOffset = 0;
+function updateScrollBar() {
+  const doc = document.documentElement, body = document.body;
+  let scrollTop = window.scrollY || doc.scrollTop || body.scrollTop;
+  let scrollHeight = Math.max(doc.scrollHeight, body.scrollHeight) - window.innerHeight;
+  let percent = scrollHeight > 0 ? scrollTop / scrollHeight : 0;
+  // 计算滑块高度与位置
+  let track = document.getElementById('vtrack');
+  let trackH = track.offsetHeight, thumbH = Math.max(trackH * window.innerHeight / (body.scrollHeight || 1), 30);
+  vthumb.style.height = thumbH + "px";
+  let top = percent * (trackH - thumbH);
+  vthumb.style.top = top + "px";
+  vperc.textContent = Math.round(percent*100) + "%";
+}
+window.addEventListener('scroll', updateScrollBar);
+window.addEventListener('resize', updateScrollBar);
+
+// 拖动实现
+vthumb.addEventListener('mousedown', e => {
+  dragging = true; dragOffset = e.clientY - vthumb.getBoundingClientRect().top;
+  vthumb.classList.add('dragging');
+  document.body.style.userSelect = 'none';
+});
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  const track = document.getElementById('vtrack');
+  let y = e.clientY - track.getBoundingClientRect().top - dragOffset;
+  let trackH = track.offsetHeight, thumbH = vthumb.offsetHeight;
+  y = Math.max(0, Math.min(trackH-thumbH, y));
+  let percent = y/(trackH-thumbH);
+  let scrollHeight = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight) - window.innerHeight;
+  window.scrollTo({top: percent * scrollHeight});
+});
+window.addEventListener('mouseup', ()=>{ dragging=false; vthumb.classList.remove('dragging'); document.body.style.userSelect=''; });
+
+// 触摸（移动端）
+vthumb.addEventListener('touchstart', e => {
+  dragging = true;
+  dragOffset = e.touches[0].clientY - vthumb.getBoundingClientRect().top;
+  vthumb.classList.add('dragging');
+}, {passive:false});
+window.addEventListener('touchmove', e => {
+  if (!dragging) return;
+  const track = document.getElementById('vtrack');
+  let y = e.touches[0].clientY - track.getBoundingClientRect().top - dragOffset;
+  let trackH = track.offsetHeight, thumbH = vthumb.offsetHeight;
+  y = Math.max(0, Math.min(trackH-thumbH, y));
+  let percent = y/(trackH-thumbH);
+  let scrollHeight = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight) - window.innerHeight;
+  window.scrollTo({top: percent * scrollHeight});
+}, {passive:false});
+window.addEventListener('touchend', ()=>{ dragging=false; vthumb.classList.remove('dragging'); document.body.style.userSelect=''; });
+
+</script>
+</body>
+</html>
