@@ -64,7 +64,7 @@ function tryRestore() {
   const obj = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
   if (obj && obj.fileHash === fileHash) {
     eliminated = new Set(obj.eliminated); currentPage = obj.currentPage || 1;
-    document.getElementById('fileNotice').textContent = "自动恢复了上次的消灭进度";
+    // 不显示任何恢复提示
   } else if(obj) {
     document.getElementById('fileNotice').innerHTML =
       "已检测到不同文件的进度数据，<a href='#' onclick='resetAll(true)'>点此清空</a>";
@@ -165,8 +165,7 @@ function resetAll(forceClear=false){
 (function(){
   const obj = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
   if(obj && obj.eliminated && obj.fileHash) {
-    document.getElementById('fileNotice').innerHTML =
-      "检测到上次的消灭进度，请先上传相同单词表即可自动恢复进度。<a href='#' onclick='resetAll(true)'>清空进度</a>";
+    // 不显示任何自动恢复提示
   }
 })();
 </script>
