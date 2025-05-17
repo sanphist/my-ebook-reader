@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>单词消灭工具</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: "微软雅黑", sans-serif; padding: 16px; background: #eafae4; color: #213421; }
+    h2 { margin-bottom: 8px; color: #388e3c; }
+    #fileNotice { color: #d35c16; font-size: 15px; }
+    #statBar { font-size:16px; margin: 10px 0 4px 0; color:#276027;}
+    table {
+      border-collapse: collapse; width: 100%; margin-bottom: 10px; background: #f6fef2;
+      box-shadow: 0 2px 8px 0 #b7e2b2; border-radius: 0 0 11px 11px; overflow: hidden;
+    }
+    th, td { border: 1px solid #cbe6c4; padding: 8px; text-align: left; font-size: 16px;}
+    th { background: #d8f5cf; color: #1d6526; font-weight: 600; }
+    .pagination { margin: 10px 0; }
+    .pagination button { margin: 0 2px; background: #b4e2b5; border: none; border-radius: 4px; color: #2e592b; font-weight: bold; padding: 4px 11px; cursor: pointer;}
+    .pagination button:hover { background: #e2fbe4; }
+    .pagination b { color: #1c5c1c; font-size: 17px;}
+    #topBtns { margin-bottom: 6px; }
+    #topBtns button { margin-right: 12px; background: #49b266; color: #fff; border: none; padding: 7px 18px; border-radius: 5px; font-size: 15px; cursor: pointer;}
+    #topBtns button:hover { background: #6fd590; }
+    #resetBtn { background: #b7c96c; color: #3a400e; border: none; border-radius: 6px; padding: 7px 18px; font-size: 15px; cursor: pointer; margin-top: 10px;}
+    #resetBtn:hover { background: #d4e38b; }
+    tr.eliminated { background: #ffb46a !important; color: #502800 !important; text-decoration: line-through; font-weight: bold;}
+    tr.eliminated button { background: #da7300 !important; color: #fff !important;}
+    tr.eliminated td { border-color: #db9900 !important;}
+  </style>
+</head>
+<body>
+<h2>单词消灭工具</h2>
+<input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+<span id="fileNotice" style="margin-left:10px;"></span>
+<div id="statBar"></div>
+<div class="pagination" id="pagination"></div>
+<div id="topBtns" style="display:none;">
+  <button onclick="exportCSV('eliminated')">导出已消灭单词</button>
+  <button onclick="exportCSV('remaining')">导出剩余单词</button>
+</div>
+<table id="wordTable"></table>
+<div><button id="resetBtn" onclick="resetAll()">全部重置</button></div>
+<script>
+let data = [], eliminated = new Set(), pageSize = 1000, currentPage = 1, headers = [], fileHash = "";
+const STORAGE_KEY = "eliminate_words_progress_v2";
+function quickHash(arr) {
+  let s = JSON.stringify(arr).slice(0, 1000), hash = 0;
+  for (let i = 0; i < s.length; i++) hash = ((hash << 5) - hash) + s.charCodeAt(i), hash |= 0;
+  return hash + "_" + (arr.length || 0);
+}
+function updateStatBar(){
+  if(!data.length) { document.getElementById('statBar').textContent = ""; return; }
+  const elim = eliminated.size, total = data.length, left = total - elim;
+  document.getElementById('statBar').textContent = `已消灭单词：${elim} 个   |   剩余：${left} 个   |   总计：${total} 个`;
+}
+function tryRestore() {
+  const obj = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+  if (obj && obj.fileHash === fileHash) {
+    eliminated = new Set(obj.eliminated); currentPage = obj.currentPage || 1;
+    document.getElementById('fileNotice').textContent = "自动恢复了上次的消灭进度";
+  } else if(obj) {
+    document.getElementById('fileNotice').innerHTML =
+      "已检测到不同文件的进度数据，<a href='#' onclick='resetAll(true)'>点此清空</a>";
+  } else { document.getElementById('fileNotice').textContent = ""; }
+}
+function saveProgress() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({fileHash, eliminated: Array.from(eliminated), currentPage}));
+}
+document.getElementById('fileInput').addEventListener('change', function(e){
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  const isExcel = /\.xlsx?$/.test(file.name);
+  if (isExcel) {
+    reader.onload = function(evt) {
+      const workbook = XLSX.read(evt.target.result, {type: 'array'});
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const json = XLSX.utils.sheet_to_json(sheet, {header:1, defval:""});
+      headers = json[0]; data = json.slice(1).filter(row => row.length > 0 && row[0]);
+      fileHash = quickHash(data); eliminated = new Set(); currentPage = 1; tryRestore();
+      document.getElementById('topBtns').style.display = '';
+      renderTable(); renderPagination(); updateStatBar(); saveProgress();
+    }; reader.readAsArrayBuffer(file);
+  } else {
+    reader.onload = function(evt) {
+      const lines = evt.target.result.split(/\r?\n/).filter(line => line.trim());
+      headers = lines[0].split(','); data = lines.slice(1).map(line => line.split(','));
+      fileHash = quickHash(data); eliminated = new Set(); currentPage = 1; tryRestore();
+      document.getElementById('topBtns').style.display = '';
+      renderTable(); renderPagination(); updateStatBar(); saveProgress();
+    }; reader.readAsText(file, 'utf-8');
+  }
+});
+function renderTable(){
+  const table = document.getElementById('wordTable');
+  if (data.length === 0) { table.innerHTML = ''; document.getElementById('topBtns').style.display = 'none'; updateStatBar(); return; }
+  document.getElementById('topBtns').style.display = '';
+  const start = (currentPage-1)*pageSize, end = Math.min(start+pageSize, data.length);
+  let html = '<tr>' + headers.map(h=>`<th>${h}</th>`).join('') + '<th>操作</th></tr>';
+  for(let i=start; i<end; i++) {
+    const row = data[i], eliminatedRow = eliminated.has(i);
+    let rowClass = '';
+    if(eliminatedRow){ rowClass = 'eliminated'; }
+    html += `<tr class="${rowClass}" onclick="toggleEliminate(${i},event)">`
+      + row.map(col=>`<td>${col}</td>`).join('')
+      + `<td>${eliminatedRow ? '<button onclick="event.stopPropagation();toggleEliminate('+i+',event)">撤销</button>' : '点击消灭'}</td></tr>`;
+  }
+  table.innerHTML = html;
+  updateStatBar();
+}
+function toggleEliminate(idx, event){
+  if(eliminated.has(idx)) eliminated.delete(idx); else eliminated.add(idx);
+  renderTable(); saveProgress();
+}
+function renderPagination(){
+  const totalPages = Math.ceil(data.length / pageSize);
+  let html = `共${data.length}条，每页${pageSize}条，页码：`;
+  if(currentPage > 1) html += `<button onclick="gotoPage(${currentPage-1})">&lt;上一页</button>`;
+  for(let i=1; i<=totalPages; i++) {
+    if(i===currentPage) html += `<b>${i}</b> `;
+    else if(i<=3||i>totalPages-3||Math.abs(i-currentPage)<=1) html += `<button onclick="gotoPage(${i})">${i}</button>`;
+    else if(i===currentPage-2||i===currentPage+2) html += '...';
+  }
+  if(currentPage < totalPages) html += `<button onclick="gotoPage(${currentPage+1})">下一页&gt;</button>`;
+  document.getElementById('pagination').innerHTML = html; saveProgress();
+}
+function gotoPage(p){ currentPage = p; renderTable(); renderPagination(); saveProgress();}
+function escapeCSV(val) {
+  if (typeof val !== "string") val = (val==null ? "" : String(val));
+  if (val.includes('"')) val = val.replace(/"/g, '""');
+  if (val.includes(',') || val.includes('\n') || val.includes('"')) return `"${val}"`;
+  return val;
+}
+function exportCSV(type){
+  if(data.length === 0) return;
+  let rows = []; rows.push(headers.map(escapeCSV).join(','));
+  data.forEach((row,i)=>{
+    if(type==='eliminated' && eliminated.has(i)) rows.push(row.map(escapeCSV).join(','));
+    if(type==='remaining' && !eliminated.has(i)) rows.push(row.map(escapeCSV).join(','));
+  });
+  const blob = new Blob([rows.join('\r\n')], {type: "text/csv"});
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = (type==='eliminated'?'已消灭单词':'剩余单词')+'.csv';
+  link.click();
+}
+function resetAll(forceClear=false){
+  eliminated = new Set(); currentPage = 1; localStorage.removeItem(STORAGE_KEY);
+  renderTable(); renderPagination(); updateStatBar();
+  if(forceClear) document.getElementById('fileNotice').textContent = '';
+}
+(function(){
+  const obj = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+  if(obj && obj.eliminated && obj.fileHash) {
+    document.getElementById('fileNotice').innerHTML =
+      "检测到上次的消灭进度，请先上传相同单词表即可自动恢复进度。<a href='#' onclick='resetAll(true)'>清空进度</a>";
+  }
+})();
+</script>
+</body>
+</html>
