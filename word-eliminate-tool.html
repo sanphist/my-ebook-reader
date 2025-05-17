@@ -26,7 +26,7 @@
     #topBtns button:hover { background: #6fd590; }
     #resetBtn { background: #b7c96c; color: #3a400e; border: none; border-radius: 6px; padding: 7px 18px; font-size: 15px; cursor: pointer; margin-top: 10px;}
     #resetBtn:hover { background: #d4e38b; }
-    tr.eliminated { background: #ffb46a !important; color: #502800 !important; text-decoration: line-through !important; text-decoration-thickness: 1.5px !important; font-weight: bold;}
+    tr.eliminated { background: #ffb46a !important; color: #502800 !important; text-decoration: line-through !important; text-decoration-thickness: 0.5px !important; font-weight: bold;}
     tr.eliminated button { background: #da7300 !important; color: #fff !important;}
     tr.eliminated td { border-color: #db9900 !important;}
   </style>
@@ -88,7 +88,6 @@ document.getElementById('fileInput').addEventListener('change', function(e){
       headers = json[0]; data = json.slice(1).filter(row => row.length > 0 && row[0]);
       fileHash = quickHash(data); eliminated = new Set(); currentPage = 1; tryRestore();
       document.getElementById('topBtns').style.display = '';
-      // 恢复隐藏模式
       hideEliminated = (localStorage.getItem(HIDE_KEY) === "1");
       updateHideBtn();
       renderTable(); renderPagination(); updateStatBar(); saveProgress();
@@ -99,7 +98,6 @@ document.getElementById('fileInput').addEventListener('change', function(e){
       headers = lines[0].split(','); data = lines.slice(1).map(line => line.split(','));
       fileHash = quickHash(data); eliminated = new Set(); currentPage = 1; tryRestore();
       document.getElementById('topBtns').style.display = '';
-      // 恢复隐藏模式
       hideEliminated = (localStorage.getItem(HIDE_KEY) === "1");
       updateHideBtn();
       renderTable(); renderPagination(); updateStatBar(); saveProgress();
@@ -124,7 +122,7 @@ function renderTable(){
     let rowClass = eliminatedRow ? "eliminated" : "";
     html += `<tr class="${rowClass}" onclick="toggleEliminate(${i},event)">`
       + row.map(col=>`<td>${col}</td>`).join('')
-      + `<td>${eliminatedRow ? '撤销' : '点击消灭'}</td></tr>`;
+      + `<td>${eliminatedRow ? '撤销' : '消灭'}</td></tr>`;
   }
   table.innerHTML = html;
   updateStatBar();
@@ -174,7 +172,6 @@ function resetAll(forceClear=false){
   renderTable(); renderPagination(); updateStatBar();
   if(forceClear) document.getElementById('fileNotice').textContent = '';
 }
-// 切换显示/隐藏已消灭
 function toggleHide() {
   hideEliminated = !hideEliminated;
   updateHideBtn();
@@ -185,7 +182,6 @@ function updateHideBtn() {
   btn.textContent = hideEliminated ? "显示全部单词（含已消灭）" : "隐藏已消灭单词";
 }
 (function(){
-  // 恢复隐藏模式
   hideEliminated = (localStorage.getItem(HIDE_KEY) === "1");
   updateHideBtn();
   const obj = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
