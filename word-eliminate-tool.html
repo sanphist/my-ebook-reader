@@ -9,6 +9,8 @@
     h2 { margin-bottom: 8px; color: #388e3c; }
     #fileNotice { color: #d35c16; font-size: 15px; }
     #statBar { font-size:16px; margin: 10px 0 4px 0; color:#276027;}
+    #toggleHideBtn { background:#b4e2b5; border:none; border-radius:5px; padding:6px 16px; color:#175019; font-size:15px; margin-bottom:9px; cursor:pointer;}
+    #toggleHideBtn:hover { background: #d0f7cb; }
     table {
       border-collapse: collapse; width: 100%; margin-bottom: 10px; background: #f6fef2;
       box-shadow: 0 2px 8px 0 #b7e2b2; border-radius: 0 0 11px 11px; overflow: hidden;
@@ -24,13 +26,17 @@
     #topBtns button:hover { background: #6fd590; }
     #resetBtn { background: #b7c96c; color: #3a400e; border: none; border-radius: 6px; padding: 7px 18px; font-size: 15px; cursor: pointer; margin-top: 10px;}
     #resetBtn:hover { background: #d4e38b; }
-    /* 没有 eliminated 行样式，因为不会再显示已消灭 */
+    tr.eliminated { background: #ffb46a !important; color: #502800 !important; text-decoration: line-through !important; text-decoration-thickness: 1.5px !important; font-weight: bold;}
+    tr.eliminated button { background: #da7300 !important; color: #fff !important;}
+    tr.eliminated td { border-color: #db9900 !important;}
   </style>
 </head>
 <body>
 <h2>单词消灭工具</h2>
 <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
 <span id="fileNotice" style="margin-left:10px;"></span>
+<br>
+<button id="toggleHideBtn" style="display:none;" onclick="toggleHide()"></button>
 <div id="statBar"></div>
 <div class="pagination" id="pagination"></div>
 <div id="topBtns" style="display:none;">
@@ -41,8 +47,9 @@
 <div><button id="resetBtn" onclick="resetAll()">全部重置</button></div>
 <script>
 let data = [], eliminated = new Set(), pageSize = 1000, currentPage = 1, headers = [], fileHash = "";
-let remainingIndices = [];
+let hideEliminated = false;
 const STORAGE_KEY = "eliminate_words_progress_v2";
+const HIDE_KEY = "eliminate_hide_mode";
 
 function quickHash(arr) {
   let s = JSON.stringify(arr).slice(0, 1000), hash = 0;
@@ -54,25 +61,18 @@ function updateStatBar(){
   const elim = eliminated.size, total = data.length, left = total - elim;
   document.getElementById('statBar').textContent = `已消灭单词：${elim} 个   |   剩余：${left} 个   |   总计：${total} 个`;
 }
-function updateRemainingIndices() {
-  remainingIndices = [];
-  for (let i = 0; i < data.length; i++) {
-    if (!eliminated.has(i)) remainingIndices.push(i);
-  }
-}
 function tryRestore() {
   const obj = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
   if (obj && obj.fileHash === fileHash) {
     eliminated = new Set(obj.eliminated); currentPage = obj.currentPage || 1;
-    // 不显示任何恢复提示
   } else if(obj) {
     document.getElementById('fileNotice').innerHTML =
       "已检测到不同文件的进度数据，<a href='#' onclick='resetAll(true)'>点此清空</a>";
   } else { document.getElementById('fileNotice').textContent = ""; }
-  updateRemainingIndices();
 }
 function saveProgress() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({fileHash, eliminated: Array.from(eliminated), currentPage}));
+  localStorage.setItem(HIDE_KEY, hideEliminated ? "1" : "0");
 }
 document.getElementById('fileInput').addEventListener('change', function(e){
   const file = e.target.files[0];
@@ -88,6 +88,9 @@ document.getElementById('fileInput').addEventListener('change', function(e){
       headers = json[0]; data = json.slice(1).filter(row => row.length > 0 && row[0]);
       fileHash = quickHash(data); eliminated = new Set(); currentPage = 1; tryRestore();
       document.getElementById('topBtns').style.display = '';
+      // 恢复隐藏模式
+      hideEliminated = (localStorage.getItem(HIDE_KEY) === "1");
+      updateHideBtn();
       renderTable(); renderPagination(); updateStatBar(); saveProgress();
     }; reader.readAsArrayBuffer(file);
   } else {
@@ -96,38 +99,47 @@ document.getElementById('fileInput').addEventListener('change', function(e){
       headers = lines[0].split(','); data = lines.slice(1).map(line => line.split(','));
       fileHash = quickHash(data); eliminated = new Set(); currentPage = 1; tryRestore();
       document.getElementById('topBtns').style.display = '';
+      // 恢复隐藏模式
+      hideEliminated = (localStorage.getItem(HIDE_KEY) === "1");
+      updateHideBtn();
       renderTable(); renderPagination(); updateStatBar(); saveProgress();
     }; reader.readAsText(file, 'utf-8');
   }
+  document.getElementById('toggleHideBtn').style.display = '';
 });
 function renderTable(){
   const table = document.getElementById('wordTable');
-  updateRemainingIndices();
-  if (data.length === 0 || remainingIndices.length === 0) {
-    table.innerHTML = ''; document.getElementById('topBtns').style.display = 'none'; updateStatBar(); return;
-  }
+  if (data.length === 0) { table.innerHTML = ''; document.getElementById('topBtns').style.display = 'none'; updateStatBar(); return; }
   document.getElementById('topBtns').style.display = '';
-  const total = remainingIndices.length;
+  let visibleIndices = [];
+  for (let i = 0; i < data.length; i++) {
+    if (!hideEliminated || !eliminated.has(i)) visibleIndices.push(i);
+  }
+  const total = visibleIndices.length;
   const start = (currentPage-1)*pageSize, end = Math.min(start+pageSize, total);
   let html = '<tr>' + headers.map(h=>`<th>${h}</th>`).join('') + '<th>操作</th></tr>';
   for(let j=start; j<end; j++) {
-    const i = remainingIndices[j];
-    const row = data[i];
-    html += `<tr onclick="toggleEliminate(${j},event)">${row.map(col=>`<td>${col}</td>`).join('')}<td>点击消灭</td></tr>`;
+    const i = visibleIndices[j];
+    const row = data[i], eliminatedRow = eliminated.has(i);
+    let rowClass = eliminatedRow ? "eliminated" : "";
+    html += `<tr class="${rowClass}" onclick="toggleEliminate(${i},event)">`
+      + row.map(col=>`<td>${col}</td>`).join('')
+      + `<td>${eliminatedRow ? '撤销' : '点击消灭'}</td></tr>`;
   }
   table.innerHTML = html;
   updateStatBar();
 }
 function toggleEliminate(idx, event){
-  updateRemainingIndices();
-  const i = remainingIndices[(currentPage-1)*pageSize + idx];
-  eliminated.add(i);
+  if(eliminated.has(idx)) eliminated.delete(idx); else eliminated.add(idx);
   renderTable(); saveProgress();
 }
 function renderPagination(){
-  updateRemainingIndices();
-  const totalPages = Math.ceil(remainingIndices.length / pageSize);
-  let html = `共${data.length}条，每页${pageSize}条，还剩${remainingIndices.length}条，页码：`;
+  let visibleIndices = [];
+  for (let i = 0; i < data.length; i++) {
+    if (!hideEliminated || !eliminated.has(i)) visibleIndices.push(i);
+  }
+  const totalPages = Math.ceil(visibleIndices.length / pageSize);
+  let html = `共${data.length}条，每页${pageSize}条，${hideEliminated?"剩余":"显示"}${visibleIndices.length}条，页码：`;
   if(currentPage > 1) html += `<button onclick="gotoPage(${currentPage-1})">&lt;上一页</button>`;
   for(let i=1; i<=totalPages; i++) {
     if(i===currentPage) html += `<b>${i}</b> `;
@@ -137,7 +149,7 @@ function renderPagination(){
   if(currentPage < totalPages) html += `<button onclick="gotoPage(${currentPage+1})">下一页&gt;</button>`;
   document.getElementById('pagination').innerHTML = html; saveProgress();
 }
-function gotoPage(p){ currentPage = p; renderTable(); renderPagination(); saveProgress();}
+function gotoPage(p){ currentPage = p; renderTable(); renderPagination(); saveProgress(); }
 function escapeCSV(val) {
   if (typeof val !== "string") val = (val==null ? "" : String(val));
   if (val.includes('"')) val = val.replace(/"/g, '""');
@@ -162,10 +174,23 @@ function resetAll(forceClear=false){
   renderTable(); renderPagination(); updateStatBar();
   if(forceClear) document.getElementById('fileNotice').textContent = '';
 }
+// 切换显示/隐藏已消灭
+function toggleHide() {
+  hideEliminated = !hideEliminated;
+  updateHideBtn();
+  renderTable(); renderPagination(); saveProgress();
+}
+function updateHideBtn() {
+  let btn = document.getElementById('toggleHideBtn');
+  btn.textContent = hideEliminated ? "显示全部单词（含已消灭）" : "隐藏已消灭单词";
+}
 (function(){
+  // 恢复隐藏模式
+  hideEliminated = (localStorage.getItem(HIDE_KEY) === "1");
+  updateHideBtn();
   const obj = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
   if(obj && obj.eliminated && obj.fileHash) {
-    // 不显示任何自动恢复提示
+    // 不显示自动恢复提示
   }
 })();
 </script>
