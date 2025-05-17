@@ -24,9 +24,7 @@
     #topBtns button:hover { background: #6fd590; }
     #resetBtn { background: #b7c96c; color: #3a400e; border: none; border-radius: 6px; padding: 7px 18px; font-size: 15px; cursor: pointer; margin-top: 10px;}
     #resetBtn:hover { background: #d4e38b; }
-    tr.eliminated { background: #ffb46a !important; color: #502800 !important; text-decoration: line-through; font-weight: bold;}
-    tr.eliminated button { background: #da7300 !important; color: #fff !important;}
-    tr.eliminated td { border-color: #db9900 !important;}
+    /* 没有 eliminated 行样式，因为不会再显示已消灭 */
   </style>
 </head>
 <body>
@@ -43,7 +41,9 @@
 <div><button id="resetBtn" onclick="resetAll()">全部重置</button></div>
 <script>
 let data = [], eliminated = new Set(), pageSize = 1000, currentPage = 1, headers = [], fileHash = "";
+let remainingIndices = [];
 const STORAGE_KEY = "eliminate_words_progress_v2";
+
 function quickHash(arr) {
   let s = JSON.stringify(arr).slice(0, 1000), hash = 0;
   for (let i = 0; i < s.length; i++) hash = ((hash << 5) - hash) + s.charCodeAt(i), hash |= 0;
@@ -54,6 +54,12 @@ function updateStatBar(){
   const elim = eliminated.size, total = data.length, left = total - elim;
   document.getElementById('statBar').textContent = `已消灭单词：${elim} 个   |   剩余：${left} 个   |   总计：${total} 个`;
 }
+function updateRemainingIndices() {
+  remainingIndices = [];
+  for (let i = 0; i < data.length; i++) {
+    if (!eliminated.has(i)) remainingIndices.push(i);
+  }
+}
 function tryRestore() {
   const obj = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
   if (obj && obj.fileHash === fileHash) {
@@ -63,6 +69,7 @@ function tryRestore() {
     document.getElementById('fileNotice').innerHTML =
       "已检测到不同文件的进度数据，<a href='#' onclick='resetAll(true)'>点此清空</a>";
   } else { document.getElementById('fileNotice').textContent = ""; }
+  updateRemainingIndices();
 }
 function saveProgress() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({fileHash, eliminated: Array.from(eliminated), currentPage}));
@@ -95,28 +102,32 @@ document.getElementById('fileInput').addEventListener('change', function(e){
 });
 function renderTable(){
   const table = document.getElementById('wordTable');
-  if (data.length === 0) { table.innerHTML = ''; document.getElementById('topBtns').style.display = 'none'; updateStatBar(); return; }
+  updateRemainingIndices();
+  if (data.length === 0 || remainingIndices.length === 0) {
+    table.innerHTML = ''; document.getElementById('topBtns').style.display = 'none'; updateStatBar(); return;
+  }
   document.getElementById('topBtns').style.display = '';
-  const start = (currentPage-1)*pageSize, end = Math.min(start+pageSize, data.length);
+  const total = remainingIndices.length;
+  const start = (currentPage-1)*pageSize, end = Math.min(start+pageSize, total);
   let html = '<tr>' + headers.map(h=>`<th>${h}</th>`).join('') + '<th>操作</th></tr>';
-  for(let i=start; i<end; i++) {
-    const row = data[i], eliminatedRow = eliminated.has(i);
-    let rowClass = '';
-    if(eliminatedRow){ rowClass = 'eliminated'; }
-    html += `<tr class="${rowClass}" onclick="toggleEliminate(${i},event)">`
-      + row.map(col=>`<td>${col}</td>`).join('')
-      + `<td>${eliminatedRow ? '<button onclick="event.stopPropagation();toggleEliminate('+i+',event)">撤销</button>' : '点击消灭'}</td></tr>`;
+  for(let j=start; j<end; j++) {
+    const i = remainingIndices[j];
+    const row = data[i];
+    html += `<tr onclick="toggleEliminate(${j},event)">${row.map(col=>`<td>${col}</td>`).join('')}<td>点击消灭</td></tr>`;
   }
   table.innerHTML = html;
   updateStatBar();
 }
 function toggleEliminate(idx, event){
-  if(eliminated.has(idx)) eliminated.delete(idx); else eliminated.add(idx);
+  updateRemainingIndices();
+  const i = remainingIndices[(currentPage-1)*pageSize + idx];
+  eliminated.add(i);
   renderTable(); saveProgress();
 }
 function renderPagination(){
-  const totalPages = Math.ceil(data.length / pageSize);
-  let html = `共${data.length}条，每页${pageSize}条，页码：`;
+  updateRemainingIndices();
+  const totalPages = Math.ceil(remainingIndices.length / pageSize);
+  let html = `共${data.length}条，每页${pageSize}条，还剩${remainingIndices.length}条，页码：`;
   if(currentPage > 1) html += `<button onclick="gotoPage(${currentPage-1})">&lt;上一页</button>`;
   for(let i=1; i<=totalPages; i++) {
     if(i===currentPage) html += `<b>${i}</b> `;
