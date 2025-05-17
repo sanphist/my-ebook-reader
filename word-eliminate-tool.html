@@ -11,6 +11,8 @@
     #statBar { font-size:16px; margin: 10px 0 4px 0; color:#276027;}
     #toggleHideBtn { background:#b4e2b5; border:none; border-radius:5px; padding:6px 16px; color:#175019; font-size:15px; margin-bottom:9px; cursor:pointer;}
     #toggleHideBtn:hover { background: #d0f7cb; }
+    /* 表格右侧留空间给滑块 */
+    #wordTable { margin-right: 74px; }
     table {
       border-collapse: collapse; width: 100%; margin-bottom: 10px; background: #f6fef2;
       box-shadow: 0 2px 8px 0 #b7e2b2; border-radius: 0 0 11px 11px; overflow: hidden;
@@ -32,11 +34,12 @@
     /* --- 右侧虚拟进度条 --- */
     #pageSliderWrap {
       position: fixed;
-      top: 120px; right: 14px;
-      z-index: 100;
-      height: 64vh; min-height: 240px; max-height: 80vh;
+      top: 120px; right: 6px;
+      z-index: 101;
+      height: 64vh; min-height: 220px; max-height: 80vh;
       display: flex; align-items: center;
       user-select: none;
+      pointer-events: none;  /* 只允许子元素响应事件，避免滑块“穿透”遮挡 */
     }
     #pageSlider {
       background: #d8f5cf;
@@ -48,10 +51,10 @@
       flex-direction: column;
       align-items: center;
       justify-content: flex-end;
-      cursor: pointer;
       box-shadow: 0 2px 12px #b7e2b2b0;
       touch-action: none;
       position: relative;
+      pointer-events: all; /* 让滑块本身可拖动点击 */
     }
     .slider-thumb {
       background: #49b266;
@@ -61,20 +64,25 @@
       display: flex; align-items: center; justify-content: center;
       color: #fff; font-weight: bold; font-size: 22px; letter-spacing: 2px;
       box-shadow: 0 2px 8px #aee0b5d0;
-      transition: box-shadow 0.1s;
+      transition: box-shadow 0.1s, top 0.07s;
       touch-action: none;
       position: absolute;
-      left: 0; /* center in slider */
+      left: 0;
+      pointer-events: all;
+      cursor: grab;
+      user-select: none;
     }
     .slider-thumb.active {
       box-shadow: 0 4px 18px #49b266c0;
       background: #3fa150;
+      cursor: grabbing;
     }
     .slider-label {
       color: #49b266; font-size:13px; margin-bottom:7px;
     }
     @media (max-width: 800px) {
-      #pageSliderWrap { right: 4px; }
+      #pageSliderWrap { right: 2px; }
+      #wordTable { margin-right: 46px; }
       #pageSlider { width: 34px; }
       .slider-thumb { width: 34px; height: 42px; font-size: 16px;}
     }
@@ -103,8 +111,6 @@ let data = [], eliminated = new Set(), pageSize = 1000, currentPage = 1, headers
 let hideEliminated = false;
 const STORAGE_KEY = "eliminate_words_progress_v2";
 const HIDE_KEY = "eliminate_hide_mode";
-
-// 右侧滑块相关
 let totalPages = 1, draggingSlider = false;
 
 function quickHash(arr) {
@@ -255,10 +261,8 @@ function updateSlider() {
     wrap.style.display = 'none'; return;
   }
   wrap.style.display = '';
-  // 计算滑块高度
   const wrapH = wrap.offsetHeight;
-  const trackH = wrapH - 50; // 滑轨高度
-  // thumb位置
+  const trackH = wrapH - 54; // 滑轨高度
   let percent = (currentPage-1)/(totalPages-1 || 1);
   percent = Math.max(0, Math.min(1, percent));
   let top = Math.round(percent * trackH);
@@ -328,9 +332,7 @@ function updateSlider() {
   hideEliminated = (localStorage.getItem(HIDE_KEY) === "1");
   updateHideBtn();
   const obj = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-  if(obj && obj.eliminated && obj.fileHash) {
-    // 不显示自动恢复提示
-  }
+  if(obj && obj.eliminated && obj.fileHash) {}
 })();
 </script>
 </body>
