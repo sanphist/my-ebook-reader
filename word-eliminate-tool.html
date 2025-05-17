@@ -11,14 +11,15 @@
     #statBar { font-size:16px; margin: 10px 0 4px 0; color:#276027;}
     #toggleHideBtn { background:#b4e2b5; border:none; border-radius:5px; padding:6px 16px; color:#175019; font-size:15px; margin-bottom:9px; cursor:pointer;}
     #toggleHideBtn:hover { background: #d0f7cb; }
-    /* 表格右侧留空间给滑块 */
-    #wordTable { margin-right: 74px; }
+    /* 右侧留白更宽，防滑块 */
+    #wordTable { margin-right: 92px; }
     table {
       border-collapse: collapse; width: 100%; margin-bottom: 10px; background: #f6fef2;
       box-shadow: 0 2px 8px 0 #b7e2b2; border-radius: 0 0 11px 11px; overflow: hidden;
     }
     th, td { border: 1px solid #cbe6c4; padding: 8px; text-align: left; font-size: 16px;}
     th { background: #d8f5cf; color: #1d6526; font-weight: 600; }
+    td.op { padding-right: 38px !important; }
     .pagination { margin: 10px 0; }
     .pagination button { margin: 0 2px; background: #b4e2b5; border: none; border-radius: 4px; color: #2e592b; font-weight: bold; padding: 4px 11px; cursor: pointer;}
     .pagination button:hover { background: #e2fbe4; }
@@ -31,21 +32,21 @@
     tr.eliminated { background: #ffb46a !important; color: #502800 !important; text-decoration: line-through !important; text-decoration-thickness: 0.5px !important; font-weight: bold;}
     tr.eliminated button { background: #da7300 !important; color: #fff !important;}
     tr.eliminated td { border-color: #db9900 !important;}
-    /* --- 右侧虚拟进度条 --- */
+    /* --- 更细的虚拟进度条 --- */
     #pageSliderWrap {
       position: fixed;
-      top: 120px; right: 6px;
+      top: 120px; right: 10px;
       z-index: 101;
-      height: 64vh; min-height: 220px; max-height: 80vh;
+      height: 64vh; min-height: 160px; max-height: 80vh;
       display: flex; align-items: center;
       user-select: none;
-      pointer-events: none;  /* 只允许子元素响应事件，避免滑块“穿透”遮挡 */
+      pointer-events: none;
     }
     #pageSlider {
       background: #d8f5cf;
-      border: 2.5px solid #49b266;
-      border-radius: 32px;
-      width: 42px;
+      border: 1.5px solid #49b266;
+      border-radius: 14px;
+      width: 28px;
       height: 100%;
       display: flex;
       flex-direction: column;
@@ -54,16 +55,16 @@
       box-shadow: 0 2px 12px #b7e2b2b0;
       touch-action: none;
       position: relative;
-      pointer-events: all; /* 让滑块本身可拖动点击 */
+      pointer-events: all;
     }
     .slider-thumb {
       background: #49b266;
       border-radius: 50%;
-      width: 44px; height: 54px;
+      width: 28px; height: 34px;
       margin-bottom: 0;
       display: flex; align-items: center; justify-content: center;
-      color: #fff; font-weight: bold; font-size: 22px; letter-spacing: 2px;
-      box-shadow: 0 2px 8px #aee0b5d0;
+      color: #fff; font-weight: bold; font-size: 14px; letter-spacing: 1px;
+      box-shadow: 0 1px 4px #aee0b5d0;
       transition: box-shadow 0.1s, top 0.07s;
       touch-action: none;
       position: absolute;
@@ -73,18 +74,16 @@
       user-select: none;
     }
     .slider-thumb.active {
-      box-shadow: 0 4px 18px #49b266c0;
+      box-shadow: 0 3px 9px #49b266b0;
       background: #3fa150;
       cursor: grabbing;
     }
-    .slider-label {
-      color: #49b266; font-size:13px; margin-bottom:7px;
-    }
     @media (max-width: 800px) {
       #pageSliderWrap { right: 2px; }
-      #wordTable { margin-right: 46px; }
-      #pageSlider { width: 34px; }
-      .slider-thumb { width: 34px; height: 42px; font-size: 16px;}
+      #wordTable { margin-right: 48px; }
+      #pageSlider { width: 20px; }
+      .slider-thumb { width: 20px; height: 22px; font-size: 12px;}
+      td.op { padding-right: 26px !important; }
     }
   </style>
 </head>
@@ -188,7 +187,7 @@ function renderTable(){
     let rowClass = eliminatedRow ? "eliminated" : "";
     html += `<tr class="${rowClass}" onclick="toggleEliminate(${i},event)">`
       + row.map(col=>`<td>${col}</td>`).join('')
-      + `<td>${eliminatedRow ? '撤销' : '消灭'}</td></tr>`;
+      + `<td class="op">${eliminatedRow ? '撤销' : '消灭'}</td></tr>`;
   }
   table.innerHTML = html;
   updateStatBar();
@@ -256,13 +255,13 @@ function updateHideBtn() {
 function updateSlider() {
   const wrap = document.getElementById('pageSliderWrap');
   const slider = document.getElementById('pageSlider');
-  slider.innerHTML = ""; // 清空
+  slider.innerHTML = "";
   if (!data.length || totalPages <= 1) {
     wrap.style.display = 'none'; return;
   }
   wrap.style.display = '';
   const wrapH = wrap.offsetHeight;
-  const trackH = wrapH - 54; // 滑轨高度
+  const trackH = wrapH - 34; // thumb高度
   let percent = (currentPage-1)/(totalPages-1 || 1);
   percent = Math.max(0, Math.min(1, percent));
   let top = Math.round(percent * trackH);
@@ -276,7 +275,7 @@ function updateSlider() {
     draggingSlider = true;
     let clientY = e.touches ? e.touches[0].clientY : e.clientY;
     let sliderRect = slider.getBoundingClientRect();
-    let sliderTop = sliderRect.top, sliderBottom = sliderRect.bottom - 54;
+    let sliderTop = sliderRect.top, sliderBottom = sliderRect.bottom - 34;
     let posY = Math.min(Math.max(clientY, sliderTop), sliderBottom);
     let percent = (posY-sliderTop)/(sliderBottom-sliderTop);
     percent = Math.max(0, Math.min(1, percent));
@@ -318,7 +317,7 @@ function updateSlider() {
   slider.onclick = function(e){
     let clientY = e.touches ? e.touches[0].clientY : e.clientY;
     let sliderRect = slider.getBoundingClientRect();
-    let sliderTop = sliderRect.top, sliderBottom = sliderRect.bottom - 54;
+    let sliderTop = sliderRect.top, sliderBottom = sliderRect.bottom - 34;
     let posY = Math.min(Math.max(clientY, sliderTop), sliderBottom);
     let percent = (posY-sliderTop)/(sliderBottom-sliderTop);
     percent = Math.max(0, Math.min(1, percent));
