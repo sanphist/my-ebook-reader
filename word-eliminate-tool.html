@@ -2,23 +2,19 @@
 <html lang="zh">
 <head>
   <meta charset="UTF-8">
-  <title>单词消消乐</title>
+  <title>CocaCrush口渴单词消消乐</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
-    body { font-family: "微软雅黑", sans-serif; padding: 16px; background: #eafae4; color: #213421; }
+    body { font-family: "微软雅黑", sans-serif; padding: 0; background: #eafae4; color: #213421; }
     h2 { margin-bottom: 8px; color: #388e3c; }
     #fileNotice { color: #d35c16; font-size: 15px; }
     #statBar { font-size:16px; margin: 10px 0 4px 0; color:#276027;}
-    #toggleHideBtn { background:#b4e2b5; border:none; border-radius:5px; padding:6px 16px; color:#175019; font-size:15px; margin-bottom:9px; cursor:pointer;}
-    #toggleHideBtn:hover { background: #d0f7cb; }
-    #wordTable { margin-right: 44px; }
     table {
       border-collapse: collapse; width: 100%; margin-bottom: 10px; background: #f6fef2;
       box-shadow: 0 2px 8px 0 #b7e2b2; border-radius: 0 0 11px 11px; overflow: hidden;
     }
-    th, td { border: 1px solid #cbe6c4; padding: 8px; text-align: left; font-size: 16px;}
+    th, td { border: 1px solid #cbe6c4; padding: 8px; text-align: left; font-size: 20px;}
     th { background: #d8f5cf; color: #1d6526; font-weight: 600; }
-    td.op { padding-right: 34px !important; min-width: 50px; text-align: left !important;}
     .pagination { margin: 10px 0; }
     .pagination button { margin: 0 2px; background: #b4e2b5; border: none; border-radius: 4px; color: #2e592b; font-weight: bold; padding: 4px 11px; cursor: pointer;}
     .pagination button:hover { background: #e2fbe4; }
@@ -28,69 +24,41 @@
     #topBtns button:hover { background: #6fd590; }
     #resetBtn { background: #b7c96c; color: #3a400e; border: none; border-radius: 6px; padding: 7px 18px; font-size: 15px; cursor: pointer; margin-top: 10px;}
     #resetBtn:hover { background: #d4e38b; }
-    tr.eliminated { background: #ffb46a !important; color: #502800 !important; text-decoration: line-through !important; text-decoration-thickness: 0.5px !important; font-weight: bold;}
+    tr.eliminated { background: #ffb46a !important; color: #502800 !important; text-decoration: line-through; font-weight: bold;}
+    tr.eliminated button { background: #fff !important; color: #d60000 !important; font-size: 22px; font-weight: bold;}
     tr.eliminated td { border-color: #db9900 !important;}
-    /* --- 极细虚拟滑块 --- */
-    #pageSliderWrap {
-      position: fixed;
-      top: 120px; right: 5px;
-      z-index: 99;
-      height: 60vh; min-height: 120px; max-height: 80vh;
-      display: flex; align-items: center;
-      user-select: none;
-      pointer-events: none;
-    }
-    #pageSlider {
-      background: #d8f5cf;
-      border: 1px solid #49b266;
-      border-radius: 8px;
-      width: 14px;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-end;
-      box-shadow: 0 1px 4px #b7e2b280;
-      touch-action: none;
-      position: relative;
-      pointer-events: all;
-    }
-    .slider-thumb {
-      background: #49b266;
-      border-radius: 50%;
-      width: 16px; height: 16px;
-      margin-bottom: 0;
-      display: flex; align-items: center; justify-content: center;
-      color: #fff; font-weight: bold; font-size: 10px; letter-spacing: 0px;
-      box-shadow: 0 1px 2px #aee0b5d0;
-      transition: box-shadow 0.1s, top 0.07s;
-      touch-action: none;
-      position: absolute;
-      left: -1px;
-      pointer-events: all;
-      cursor: grab;
-      user-select: none;
-    }
-    .slider-thumb.active {
-      box-shadow: 0 2px 6px #49b266b0;
-      background: #3fa150;
-      cursor: grabbing;
-    }
-    @media (max-width: 800px) {
-      #pageSliderWrap { right: 1px; }
-      #wordTable { margin-right: 28px; }
-      #pageSlider { width: 9px; }
-      .slider-thumb { width: 10px; height: 10px; font-size: 8px;}
-      td.op { padding-right: 12px !important; }
-    }
+    .eliminate-btn { background: #fff; color: #d60000; font-size: 30px; font-weight:bold; border: none; cursor: pointer; width: 44px; height:44px; border-radius: 10px;
+  padding: 0;}
+    .eliminate-btn:hover { background: #ffe3e3; }
+    #sortSelect {font-size:16px;padding:5px 12px;border-radius:6px;border:1px solid #b4e2b5;margin:0 6px;}
+    #searchBox {font-size:15px;padding:5px;border-radius:6px;border:1px solid #b4e2b5;}
+    #pageSliderWrap {position:fixed;right:6px;top:120px;z-index:5;width:36px;height:66vh;display:none;}
+    #pageSlider {position:relative;width:100%;height:100%;background:#d4f5c4;border-radius:26px;}
+    .slider-thumb {position:absolute;left:0;width:100%;height:36px;line-height:36px;text-align:center;font-size:20px;
+        color:#157020;background:#77dd77;border-radius:18px;box-shadow:0 2px 8px #b7e2b2;font-weight:bold;user-select:none;}
   </style>
 </head>
 <body>
-<h2>单词消消乐</h2>
+<h2>CocaCrush口渴单词消消乐</h2>
 <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
 <span id="fileNotice" style="margin-left:10px;"></span>
-<br>
-<button id="toggleHideBtn" style="display:none;" onclick="toggleHide()"></button>
+<div id="btnBar" style="margin:10px 0;">
+  <button onclick="toggleHideEliminated()" id="toggleHideBtn">隐藏已消灭单词</button>
+  <button onclick="exportProgress()">导出进度文档</button>
+  <button onclick="importProgress()">导入进度文档</button>
+  <select id="sortSelect">
+    <option value="origin">原顺序</option>
+    <option value="alpha-asc">首字母A-Z</option>
+    <option value="alpha-desc">首字母Z-A</option>
+    <option value="tail-asc">尾字母A-Z</option>
+    <option value="tail-desc">尾字母Z-A</option>
+    <option value="len-asc">单词字符数小到大</option>
+    <option value="len-desc">单词字符数大到小</option>
+  </select>
+  <input id="searchBox" placeholder="关键词/支持*?" style="width:140px;">
+  <button onclick="doSearch()">关键词查找</button>
+  <button onclick="clearSearch()">清除查询</button>
+</div>
 <div id="statBar"></div>
 <div class="pagination" id="pagination"></div>
 <div id="topBtns" style="display:none;">
@@ -99,43 +67,76 @@
 </div>
 <table id="wordTable"></table>
 <div><button id="resetBtn" onclick="resetAll()">全部重置</button></div>
-<!-- 虚拟页码滑块 -->
-<div id="pageSliderWrap" style="display:none;">
-  <div id="pageSlider"></div>
-</div>
+<div id="pageSliderWrap"><div id="pageSlider"></div></div>
 <script>
-let data = [], eliminated = new Set(), pageSize = 1000, currentPage = 1, headers = [], fileHash = "";
-let hideEliminated = false;
-const STORAGE_KEY = "eliminate_words_progress_v2";
-const HIDE_KEY = "eliminate_hide_mode";
-let totalPages = 1, draggingSlider = false;
+let data = [], origData = [], eliminatedWords = new Set(),
+  pageSize = 1000, currentPage = 1, headers = [], fileHash = "", fileName = "", hideEliminated=false,
+  STORAGE_PREFIX = "eliminate_words_progress_kk_", searchIndices = [], searchActive = false;
 
+function getStorageKey() {
+  return STORAGE_PREFIX + (fileName || "unknown") + "_" + (fileHash || "0");
+}
 function quickHash(arr) {
-  let s = JSON.stringify(arr).slice(0, 1000), hash = 0;
+  let s = JSON.stringify(arr).slice(0, 2000), hash = 0;
   for (let i = 0; i < s.length; i++) hash = ((hash << 5) - hash) + s.charCodeAt(i), hash |= 0;
   return hash + "_" + (arr.length || 0);
 }
+function getWordKey(row){
+  let idx = headers.findIndex(h=>h.toLowerCase().includes('word'));
+  if(idx<0) idx=0;
+  return (row[idx]||"").trim().toLowerCase();
+}
 function updateStatBar(){
   if(!data.length) { document.getElementById('statBar').textContent = ""; return; }
-  const elim = eliminated.size, total = data.length, left = total - elim;
-  document.getElementById('statBar').textContent = `已消灭单词：${elim} 个   |   剩余：${left} 个   |   总计：${total} 个`;
+  const elim = eliminatedWords.size, total = origData.length, left = total - elim;
+  document.getElementById('statBar').textContent = `已消灭单词：${elim} 个 | 剩余：${left} 个 | 总计：${total} 个
+    共${total}条，每页${pageSize}条，显示${searchActive?searchIndices.length:total}条，页码：`;
 }
 function tryRestore() {
-  const obj = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-  if (obj && obj.fileHash === fileHash) {
-    eliminated = new Set(obj.eliminated); currentPage = obj.currentPage || 1;
-  } else if(obj) {
-    document.getElementById('fileNotice').innerHTML =
-      "已检测到不同文件的进度数据，<a href='#' onclick='resetAll(true)'>点此清空</a>";
-  } else { document.getElementById('fileNotice').textContent = ""; }
+  let obj = JSON.parse(localStorage.getItem(getStorageKey())||"null");
+  if (obj && obj.hash === fileHash) {
+    eliminatedWords = new Set(obj.eliminatedWords||[]);
+    currentPage = obj.currentPage || 1;
+    document.getElementById('fileNotice').textContent = "已恢复上次进度";
+  } else document.getElementById('fileNotice').textContent = "";
 }
 function saveProgress() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({fileHash, eliminated: Array.from(eliminated), currentPage}));
-  localStorage.setItem(HIDE_KEY, hideEliminated ? "1" : "0");
+  localStorage.setItem(getStorageKey(), JSON.stringify({hash:fileHash, eliminatedWords:Array.from(eliminatedWords), currentPage}));
+}
+function exportProgress(){
+  if(!data.length) return alert("未加载词表");
+  let blob = new Blob([JSON.stringify({
+    hash: fileHash, eliminatedWords: Array.from(eliminatedWords)
+  })], {type:"application/json"});
+  let link = document.createElement('a');
+  let date = new Date().toISOString().slice(0,10);
+  link.download = fileName.replace(/\.[^.]+$/,'') + "_进度文档_" + date + ".json";
+  link.href = URL.createObjectURL(blob); link.click();
+}
+function importProgress(){
+  let input = document.createElement('input');
+  input.type = "file";
+  input.accept = ".json";
+  input.onchange = e => {
+    let file = input.files[0];
+    if(!file) return;
+    let reader = new FileReader();
+    reader.onload = function(ev){
+      try{
+        let obj = JSON.parse(ev.target.result);
+        if(obj.hash !== fileHash) return alert("进度文档与当前词表不匹配！");
+        eliminatedWords = new Set(obj.eliminatedWords||[]);
+        saveProgress();
+        renderTable(); updateStatBar();
+      }catch{ alert("进度文档格式错误！"); }
+    };
+    reader.readAsText(file,'utf-8');
+  };
+  input.click();
 }
 document.getElementById('fileInput').addEventListener('change', function(e){
-  const file = e.target.files[0];
-  if (!file) return;
+  const file = e.target.files[0]; if (!file) return;
+  fileName = file.name;
   const reader = new FileReader();
   const isExcel = /\.xlsx?$/.test(file.name);
   if (isExcel) {
@@ -144,64 +145,75 @@ document.getElementById('fileInput').addEventListener('change', function(e){
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
       const json = XLSX.utils.sheet_to_json(sheet, {header:1, defval:""});
-      headers = json[0]; data = json.slice(1).filter(row => row.length > 0 && row[0]);
-      fileHash = quickHash(data); eliminated = new Set(); currentPage = 1; tryRestore();
+      headers = json[0]; origData = json.slice(1).filter(row => row.length > 0 && row[0]);
+      data = origData.map(row=>row.slice());
+      fileHash = quickHash(origData);
+      eliminatedWords = new Set(); currentPage = 1; hideEliminated=false;
+      document.getElementById('toggleHideBtn').textContent="隐藏已消灭单词";
+      tryRestore();
       document.getElementById('topBtns').style.display = '';
-      hideEliminated = (localStorage.getItem(HIDE_KEY) === "1");
-      updateHideBtn();
-      renderTable(); renderPagination(); updateStatBar(); saveProgress();
-      setTimeout(updateSlider, 50);
+      renderTable(); renderPagination(); updateStatBar(); saveProgress(); setTimeout(updateSlider,10);
     }; reader.readAsArrayBuffer(file);
   } else {
     reader.onload = function(evt) {
       const lines = evt.target.result.split(/\r?\n/).filter(line => line.trim());
-      headers = lines[0].split(','); data = lines.slice(1).map(line => line.split(','));
-      fileHash = quickHash(data); eliminated = new Set(); currentPage = 1; tryRestore();
+      headers = lines[0].split(','); origData = lines.slice(1).map(line => line.split(','));
+      data = origData.map(row=>row.slice());
+      fileHash = quickHash(origData);
+      eliminatedWords = new Set(); currentPage = 1; hideEliminated=false;
+      document.getElementById('toggleHideBtn').textContent="隐藏已消灭单词";
+      tryRestore();
       document.getElementById('topBtns').style.display = '';
-      hideEliminated = (localStorage.getItem(HIDE_KEY) === "1");
-      updateHideBtn();
-      renderTable(); renderPagination(); updateStatBar(); saveProgress();
-      setTimeout(updateSlider, 50);
+      renderTable(); renderPagination(); updateStatBar(); saveProgress(); setTimeout(updateSlider,10);
     }; reader.readAsText(file, 'utf-8');
   }
-  document.getElementById('toggleHideBtn').style.display = '';
-  document.getElementById('pageSliderWrap').style.display = '';
 });
+function toggleHideEliminated(){
+  hideEliminated = !hideEliminated;
+  document.getElementById('toggleHideBtn').textContent = hideEliminated ? "显示已消灭单词" : "隐藏已消灭单词";
+  renderTable(); updateStatBar();
+  setTimeout(updateSlider,10);
+}
 function renderTable(){
   const table = document.getElementById('wordTable');
-  if (data.length === 0) { table.innerHTML = ''; document.getElementById('topBtns').style.display = 'none'; updateStatBar(); return; }
+  if (!headers.length) { table.innerHTML = ''; document.getElementById('topBtns').style.display = 'none'; updateStatBar(); return; }
   document.getElementById('topBtns').style.display = '';
-  let visibleIndices = [];
-  for (let i = 0; i < data.length; i++) {
-    if (!hideEliminated || !eliminated.has(i)) visibleIndices.push(i);
-  }
-  totalPages = Math.ceil(visibleIndices.length / pageSize);
-  const total = visibleIndices.length;
-  const start = (currentPage-1)*pageSize, end = Math.min(start+pageSize, total);
+  let indices = getVisibleIndices();
+  const start = (currentPage-1)*pageSize, end = Math.min(start+pageSize, indices.length);
   let html = '<tr>' + headers.map(h=>`<th>${h}</th>`).join('') + '<th>操作</th></tr>';
-  for(let j=start; j<end; j++) {
-    const i = visibleIndices[j];
-    const row = data[i], eliminatedRow = eliminated.has(i);
-    let rowClass = eliminatedRow ? "eliminated" : "";
-    html += `<tr class="${rowClass}" onclick="toggleEliminate(${i},event)">`
+  for(let i=start; i<end; i++) {
+    let rowIdx = indices[i], row = data[rowIdx];
+    let wordKey = getWordKey(row), eliminatedRow = eliminatedWords.has(wordKey);
+    if(hideEliminated && eliminatedRow) continue;
+    let rowClass = eliminatedRow ? 'eliminated' : '';
+    html += `<tr class="${rowClass}">`
       + row.map(col=>`<td>${col}</td>`).join('')
-      + `<td class="op">${eliminatedRow ? '撤销' : '消灭'}</td></tr>`;
+      + `<td><button class="eliminate-btn" onclick="toggleEliminate('${encodeURIComponent(wordKey)}',event)">${eliminatedRow ? "撤" : "❌"}</button></td></tr>`;
   }
   table.innerHTML = html;
   updateStatBar();
-  setTimeout(updateSlider, 10);
 }
-function toggleEliminate(idx, event){
-  if(eliminated.has(idx)) eliminated.delete(idx); else eliminated.add(idx);
-  renderTable(); saveProgress();
+function getVisibleIndices(){
+  // 排序与搜索都作用于data
+  let indices = [];
+  if(searchActive) {
+    for(let i=0;i<searchIndices.length;i++) indices.push(searchIndices[i]);
+  } else {
+    for(let i=0;i<data.length;i++) indices.push(i);
+  }
+  return indices;
+}
+function toggleEliminate(wordKey, event){
+  event.stopPropagation();
+  wordKey = decodeURIComponent(wordKey);
+  if(eliminatedWords.has(wordKey)) eliminatedWords.delete(wordKey); else eliminatedWords.add(wordKey);
+  renderTable(); updateStatBar(); saveProgress();
+  setTimeout(updateSlider,10);
 }
 function renderPagination(){
-  let visibleIndices = [];
-  for (let i = 0; i < data.length; i++) {
-    if (!hideEliminated || !eliminated.has(i)) visibleIndices.push(i);
-  }
-  totalPages = Math.ceil(visibleIndices.length / pageSize);
-  let html = `共${data.length}条，每页${pageSize}条，${hideEliminated?"剩余":"显示"}${visibleIndices.length}条，页码：`;
+  let indices = getVisibleIndices();
+  let totalPages = Math.ceil(indices.length / pageSize);
+  let html = "";
   if(currentPage > 1) html += `<button onclick="gotoPage(${currentPage-1})">&lt;上一页</button>`;
   for(let i=1; i<=totalPages; i++) {
     if(i===currentPage) html += `<b>${i}</b> `;
@@ -209,12 +221,14 @@ function renderPagination(){
     else if(i===currentPage-2||i===currentPage+2) html += '...';
   }
   if(currentPage < totalPages) html += `<button onclick="gotoPage(${currentPage+1})">下一页&gt;</button>`;
-  document.getElementById('pagination').innerHTML = html; saveProgress();
-  setTimeout(updateSlider, 10);
+  document.getElementById('pagination').innerHTML = html;
+  saveProgress();
+  setTimeout(updateSlider,10);
 }
 function gotoPage(p){
-  currentPage = Math.max(1, Math.min(p, totalPages));
-  renderTable(); renderPagination(); saveProgress(); updateSlider();
+  currentPage = p;
+  renderTable(); renderPagination(); updateStatBar();
+  setTimeout(updateSlider,10);
 }
 function escapeCSV(val) {
   if (typeof val !== "string") val = (val==null ? "" : String(val));
@@ -223,11 +237,13 @@ function escapeCSV(val) {
   return val;
 }
 function exportCSV(type){
-  if(data.length === 0) return;
+  if(!data.length) return;
+  let wordIdx = headers.findIndex(h=>h.toLowerCase().includes('word'));
   let rows = []; rows.push(headers.map(escapeCSV).join(','));
-  data.forEach((row,i)=>{
-    if(type==='eliminated' && eliminated.has(i)) rows.push(row.map(escapeCSV).join(','));
-    if(type==='remaining' && !eliminated.has(i)) rows.push(row.map(escapeCSV).join(','));
+  origData.forEach((row,i)=>{
+    let key = getWordKey(row);
+    if(type==='eliminated' && eliminatedWords.has(key)) rows.push(row.map(escapeCSV).join(','));
+    if(type==='remaining' && !eliminatedWords.has(key)) rows.push(row.map(escapeCSV).join(','));
   });
   const blob = new Blob([rows.join('\r\n')], {type: "text/csv"});
   const link = document.createElement('a');
@@ -236,101 +252,88 @@ function exportCSV(type){
   link.click();
 }
 function resetAll(forceClear=false){
-  eliminated = new Set(); currentPage = 1; localStorage.removeItem(STORAGE_KEY);
-  renderTable(); renderPagination(); updateStatBar();
+  eliminatedWords = new Set(); currentPage = 1;
+  renderTable(); renderPagination(); updateStatBar(); saveProgress();
   if(forceClear) document.getElementById('fileNotice').textContent = '';
 }
-function toggleHide() {
-  hideEliminated = !hideEliminated;
-  updateHideBtn();
-  renderTable(); renderPagination(); saveProgress(); updateSlider();
+document.getElementById('sortSelect').addEventListener('change', function(){
+  if(!headers.length) return;
+  let v = this.value;
+  let wordIdx = headers.findIndex(h=>h.toLowerCase().includes('word'));
+  if(wordIdx < 0) wordIdx = 0;
+  if(v==="origin"){ data = origData.map(row=>row.slice()); }
+  else if(v==="alpha-asc"){
+    data.sort((a,b)=> (a[wordIdx]||"").localeCompare(b[wordIdx]||""));
+  }else if(v==="alpha-desc"){
+    data.sort((a,b)=> (b[wordIdx]||"").localeCompare(a[wordIdx]||""));
+  }else if(v==="tail-asc"){
+    data.sort((a,b)=> {
+      let aw = a[wordIdx]||"", bw = b[wordIdx]||"";
+      return (aw.slice(-1)||"").localeCompare(bw.slice(-1)||"");
+    });
+  }else if(v==="tail-desc"){
+    data.sort((a,b)=> {
+      let aw = a[wordIdx]||"", bw = b[wordIdx]||"";
+      return (bw.slice(-1)||"").localeCompare(aw.slice(-1)||"");
+    });
+  }else if(v==="len-asc"){
+    data.sort((a,b)=>(a[wordIdx]||"").length-(b[wordIdx]||"").length);
+  }else if(v==="len-desc"){
+    data.sort((a,b)=>(b[wordIdx]||"").length-(a[wordIdx]||"").length);
+  }
+  currentPage=1;
+  renderTable(); renderPagination(); updateStatBar(); setTimeout(updateSlider,10);
+});
+// 支持*和?模糊关键词
+function doSearch(){
+  let wordIdx = headers.findIndex(h=>h.toLowerCase().includes('word'));
+  if(wordIdx<0) wordIdx=0;
+  let kw = document.getElementById('searchBox').value.trim();
+  if(!kw){ searchActive=false; searchIndices=[]; renderTable(); renderPagination(); return;}
+  // 转正则
+  kw = kw.replace(/[.*+?^${}()|[\]\\]/g, c => '\\' + c);
+  kw = kw.replace(/\\\*/g,".*").replace(/\\\?/g,".");
+  let reg = new RegExp("^"+kw+"$","i");
+  searchIndices = [];
+  for(let i=0;i<data.length;i++){
+    if(reg.test((data[i][wordIdx]||"").trim())) searchIndices.push(i);
+  }
+  searchActive = true;
+  currentPage=1;
+  renderTable(); renderPagination(); updateStatBar(); setTimeout(updateSlider,10);
 }
-function updateHideBtn() {
-  let btn = document.getElementById('toggleHideBtn');
-  btn.textContent = hideEliminated ? "显示全部单词（含已消灭）" : "隐藏已消灭单词";
+function clearSearch(){
+  searchActive=false; searchIndices=[]; document.getElementById('searchBox').value=""; renderTable(); renderPagination(); updateStatBar(); setTimeout(updateSlider,10);
 }
-// ----------- 滑块逻辑
-function updateSlider() {
-  const wrap = document.getElementById('pageSliderWrap');
-  const slider = document.getElementById('pageSlider');
-  slider.innerHTML = "";
-  if (!data.length || totalPages <= 1) {
-    wrap.style.display = 'none'; return;
-  }
-  wrap.style.display = '';
-  const wrapH = wrap.offsetHeight;
-  const trackH = wrapH - 16;
-  let percent = (currentPage-1)/(totalPages-1 || 1);
-  percent = Math.max(0, Math.min(1, percent));
-  let top = Math.round(percent * trackH);
-  let thumb = document.createElement('div');
-  thumb.className = 'slider-thumb';
-  thumb.style.top = top + "px";
-  thumb.textContent = currentPage;
-  slider.appendChild(thumb);
-  // 拖动
-  function onDrag(e){
-    draggingSlider = true;
-    let clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    let sliderRect = slider.getBoundingClientRect();
-    let sliderTop = sliderRect.top, sliderBottom = sliderRect.bottom - 16;
-    let posY = Math.min(Math.max(clientY, sliderTop), sliderBottom);
-    let percent = (posY-sliderTop)/(sliderBottom-sliderTop);
-    percent = Math.max(0, Math.min(1, percent));
-    let page = Math.round(percent*(totalPages-1))+1;
-    page = Math.max(1, Math.min(page, totalPages));
-    thumb.textContent = page;
-    thumb.style.top = Math.round(percent * trackH) + "px";
-    thumb.classList.add('active');
-    if(page !== currentPage) {
-      currentPage = page;
-      renderTable();
-      renderPagination();
-      saveProgress();
-      updateSlider();
-    }
-    e.preventDefault();
-    return false;
-  }
-  function endDrag(e){
-    draggingSlider = false;
-    thumb.classList.remove('active');
-    document.removeEventListener('mousemove', onDrag);
-    document.removeEventListener('mouseup', endDrag);
-    document.removeEventListener('touchmove', onDrag);
-    document.removeEventListener('touchend', endDrag);
-  }
+
+// 虚拟滚动条
+function updateSlider(){
+  let indices = getVisibleIndices();
+  let totalPages = Math.ceil(indices.length / pageSize);
+  let slider = document.getElementById('pageSlider');
+  let wrap = document.getElementById('pageSliderWrap');
+  if(totalPages<=1){wrap.style.display='none';return;}
+  wrap.style.display='';
+  let height = wrap.clientHeight, thumbHeight = Math.max(28, height / totalPages);
+  slider.innerHTML = `<div class="slider-thumb" id="sliderThumb" style="top:${(height-thumbHeight)/(totalPages-1)*(currentPage-1)}px;height:${thumbHeight}px;">${currentPage}</div>`;
+  let thumb = document.getElementById('sliderThumb');
+  let dragging = false, startY=0, startPage=0;
   thumb.onmousedown = function(e){
-    document.addEventListener('mousemove', onDrag);
-    document.addEventListener('mouseup', endDrag);
-    thumb.classList.add('active');
-    e.preventDefault();
+    dragging=true; startY=e.clientY; startPage=currentPage;
+    document.body.style.userSelect="none";
   };
-  thumb.ontouchstart = function(e){
-    document.addEventListener('touchmove', onDrag);
-    document.addEventListener('touchend', endDrag);
-    thumb.classList.add('active');
-    e.preventDefault();
+  document.onmousemove=function(e){
+    if(!dragging) return;
+    let dy = e.clientY - startY;
+    let wrapH = wrap.clientHeight;
+    let movePages = Math.round(dy / ((wrapH-thumbHeight)/(totalPages-1)));
+    let newPage = Math.min(totalPages, Math.max(1, startPage+movePages));
+    if(newPage!==currentPage){ currentPage=newPage; renderTable(); renderPagination(); }
+    thumb.textContent = currentPage;
   };
-  slider.onclick = function(e){
-    let clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    let sliderRect = slider.getBoundingClientRect();
-    let sliderTop = sliderRect.top, sliderBottom = sliderRect.bottom - 16;
-    let posY = Math.min(Math.max(clientY, sliderTop), sliderBottom);
-    let percent = (posY-sliderTop)/(sliderBottom-sliderTop);
-    percent = Math.max(0, Math.min(1, percent));
-    let page = Math.round(percent*(totalPages-1))+1;
-    page = Math.max(1, Math.min(page, totalPages));
-    currentPage = page;
-    renderTable(); renderPagination(); saveProgress(); updateSlider();
-  };
+  document.onmouseup=function(){ dragging=false; document.body.style.userSelect=""; };
 }
-(function(){
-  hideEliminated = (localStorage.getItem(HIDE_KEY) === "1");
-  updateHideBtn();
-  const obj = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-  if(obj && obj.eliminated && obj.fileHash) {}
-})();
+window.onresize = ()=>setTimeout(updateSlider,200);
 </script>
 </body>
 </html>
