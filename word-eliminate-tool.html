@@ -296,19 +296,23 @@
       box-shadow: 2px 0 0 rgba(73, 178, 102, 0.18);
     }
     tr.eliminated { background: #ffb46a !important; color: #502800 !important; text-decoration: line-through; font-weight: bold; }
-    tr.eliminated button { background: #fff !important; color: #d60000 !important; font-size: 18px; font-weight: bold; }
+    tr.eliminated button { background: #fff !important; color: #d60000 !important; font-size: 24px; font-weight: bold; }
     tr.eliminated td { border-color: #db9900 !important; }
     .eliminate-btn {
       background: #fff;
       color: #d60000;
-      font-size: 22px;
+      font-size: 28px;
       font-weight: bold;
       border: none;
       cursor: pointer;
-      width: 30px;
-      height: 30px;
-      border-radius: 8px;
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
       padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
     }
     .eliminate-btn:hover { background: #ffe3e3; }
     .empty-row { text-align: center; color: #618760; font-size: 17px; padding: 22px 10px; }
@@ -467,7 +471,7 @@ const FILTER_BLANK = "__BLANK__";
 const FILTER_NONBLANK = "__NONBLANK__";
 const MIN_COLUMN_WIDTH = 96;
 const FIT_MIN_COLUMN_WIDTH = 68;
-const ACTION_COLUMN_WIDTH = 88;
+const ACTION_COLUMN_WIDTH = 52;
 const TOUCH_RESIZE_SPEED = 2.2;
 const HEADER_LONG_PRESS_MS = 260;
 
@@ -1440,8 +1444,8 @@ function renderTable() {
   table.innerHTML = `
     ${colGroupHtml}
     <thead>
-      <tr class="header-row">${headerHtml}<th><div class="th-inner"><span class="th-label">操作</span><button class="small-btn" onclick="clearHeaderSort()">清排序</button></div></th></tr>
-      <tr class="filter-row">${filterHtml}<th><div class="header-filter-box"><button class="small-btn" onclick="clearHeaderFilters()">清筛选</button><div class="filter-status"></div></div></th></tr>
+      <tr class="header-row">${headerHtml}<th><div class="th-inner"><span class="th-label">✕</span></div></th></tr>
+      <tr class="filter-row">${filterHtml}<th></th></tr>
     </thead>
     <tbody>${emptyHtml}</tbody>
   `;
