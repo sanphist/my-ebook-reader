@@ -148,18 +148,37 @@
     .header-filter-box { display: flex; flex-direction: column; gap: 4px; min-width: 82px; }
     .header-filter-text, .header-filter-select { width: 100%; font-size: 12px; padding: 3px 5px; box-sizing: border-box; }
     .filter-status { font-size: 10px; color: #457341; line-height: 1.2; min-height: 12px; }
+    #columnPopover {
+      display: none;
+      position: fixed;
+      top: 56px;
+      right: 10px;
+      z-index: 40;
+      width: min(360px, calc(100vw - 20px));
+      max-height: min(72vh, 680px);
+      overflow: auto;
+      padding: 8px;
+      background: rgba(243, 252, 234, 0.98);
+      border: 1px solid #cbe6c4;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(84, 130, 76, 0.16);
+      backdrop-filter: blur(4px);
+    }
     #columnToolBar, #columnPanel {
       display: none;
-      margin: 6px 0 8px;
-      padding: 6px 8px;
-      background: #f3fcea;
-      border: 1px solid #cbe6c4;
-      border-radius: 10px;
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      border: none;
+      border-radius: 0;
     }
     #columnToolBar {
       align-items: center;
       gap: 6px;
       flex-wrap: wrap;
+      padding-bottom: 6px;
+      margin-bottom: 6px;
+      border-bottom: 1px solid #d6e8ce;
     }
     #selectedColumnLabel {
       color: #1d6526;
@@ -186,6 +205,32 @@
       margin-bottom: 6px;
       flex-wrap: wrap;
     }
+    #columnPanelTitle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    #columnPanelActions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .icon-btn {
+      border: none;
+      border-radius: 6px;
+      background: #d8edd1;
+      color: #27502c;
+      font-size: 14px;
+      line-height: 1;
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+      padding: 0;
+    }
+    .icon-btn:hover { background: #c2dfb8; }
     #columnCheckboxList {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
@@ -292,6 +337,12 @@
       .th-inner, .header-filter-box { min-width: 72px; }
     }
     @media (pointer: coarse) {
+      #columnPopover {
+        top: 48px;
+        right: 6px;
+        width: min(420px, calc(100vw - 12px));
+        max-height: 76vh;
+      }
       .col-resizer {
         right: -10px;
         width: 22px;
@@ -348,22 +399,25 @@
     <button id="clearHeaderFiltersBtn" onclick="clearHeaderFilters()">清空表头筛选</button>
     <button onclick="toggleColumnPanel()" id="toggleColumnPanelBtn">列显示</button>
   </div>
-  <div id="columnToolBar">
-    <span id="selectedColumnLabel"></span>
-    <button class="tool-btn" onclick="adjustSelectedColumnWidth(-40)">窄一点</button>
-    <button class="tool-btn" onclick="adjustSelectedColumnWidth(40)">宽一点</button>
-    <button class="tool-btn" onclick="autoFitSelectedColumn()">自动列宽</button>
-    <button class="tool-btn" onclick="resetAllColumnWidths()">恢复默认列宽</button>
-  </div>
-  <div id="columnPanel">
-    <div id="columnPanelHeader">
-      <strong>列显示</strong>
-      <div>
-        <button class="tool-btn" onclick="showAllColumns()">全部显示</button>
-        <button class="tool-btn" onclick="showOnlyCoreColumns()">仅前两列</button>
-      </div>
+  <div id="columnPopover">
+    <div id="columnToolBar">
+      <span id="selectedColumnLabel"></span>
+      <button class="tool-btn" onclick="adjustSelectedColumnWidth(-40)">窄一点</button>
+      <button class="tool-btn" onclick="adjustSelectedColumnWidth(40)">宽一点</button>
+      <button class="tool-btn" onclick="autoFitSelectedColumn()">自动列宽</button>
+      <button class="tool-btn" onclick="resetAllColumnWidths()">恢复默认列宽</button>
     </div>
-    <div id="columnCheckboxList"></div>
+    <div id="columnPanel">
+      <div id="columnPanelHeader">
+        <div id="columnPanelTitle">列显示</div>
+        <div id="columnPanelActions">
+          <button class="tool-btn" onclick="showAllColumns()">全部显示</button>
+          <button class="tool-btn" onclick="showOnlyCoreColumns()">仅前两列</button>
+          <button class="icon-btn" onclick="closeColumnPanel()">×</button>
+        </div>
+      </div>
+      <div id="columnCheckboxList"></div>
+    </div>
   </div>
   <div id="statBar"></div>
   <div class="pagination" id="pagination"></div>
@@ -618,28 +672,34 @@ function getStickyConfig(visibleIndices) {
 }
 
 function updateColumnToolBar() {
+  const popover = document.getElementById("columnPopover");
   const toolBar = document.getElementById("columnToolBar");
   const label = document.getElementById("selectedColumnLabel");
-  if (!headers.length || selectedColumnIndex < 0 || visibleColumns[selectedColumnIndex] === false) {
+  if (!headers.length || !columnPanelVisible || selectedColumnIndex < 0 || visibleColumns[selectedColumnIndex] === false) {
     toolBar.style.display = "none";
     label.textContent = "";
+    if (!columnPanelVisible) popover.style.display = "none";
     return;
   }
+  popover.style.display = "block";
   toolBar.style.display = "flex";
   label.textContent = `当前列：${headers[selectedColumnIndex]}`;
 }
 
 function renderColumnPanel() {
+  const popover = document.getElementById("columnPopover");
   const panel = document.getElementById("columnPanel");
   const list = document.getElementById("columnCheckboxList");
   const toggleBtn = document.getElementById("toggleColumnPanelBtn");
   if (!headers.length) {
+    popover.style.display = "none";
     panel.style.display = "none";
     list.innerHTML = "";
     toggleBtn.textContent = "列显示";
     return;
   }
-  toggleBtn.textContent = columnPanelVisible ? "收起列显示" : "列显示";
+  toggleBtn.textContent = columnPanelVisible ? "收起列面板" : "列显示";
+  popover.style.display = columnPanelVisible ? "block" : "none";
   panel.style.display = columnPanelVisible ? "block" : "none";
   syncVisibleColumns();
   list.innerHTML = headers.map((header, index) => {
@@ -845,6 +905,22 @@ function toggleColumnPanel() {
   if (!headers.length) return;
   columnPanelVisible = !columnPanelVisible;
   renderColumnPanel();
+  updateColumnToolBar();
+}
+
+function closeColumnPanel() {
+  if (!columnPanelVisible) return;
+  columnPanelVisible = false;
+  renderColumnPanel();
+  updateColumnToolBar();
+}
+
+function maybeCloseColumnPanel(event) {
+  if (!columnPanelVisible) return;
+  const target = event.target;
+  if (!target || !target.closest) return;
+  if (target.closest("#columnPopover") || target.closest("#toggleColumnPanelBtn")) return;
+  closeColumnPanel();
 }
 
 function toggleColumnVisibility(index, checked) {
@@ -1543,6 +1619,7 @@ document.onmouseup = handlePointerUp;
 document.onpointermove = handlePointerMove;
 document.onpointerup = handlePointerUp;
 document.onpointercancel = handlePointerUp;
+document.addEventListener("pointerdown", maybeCloseColumnPanel);
 window.onresize = () => setTimeout(updateSlider, 200);
 </script>
 </body>
