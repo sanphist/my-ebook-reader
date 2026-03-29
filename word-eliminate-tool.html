@@ -295,14 +295,29 @@
     .sticky-divider {
       box-shadow: 2px 0 0 rgba(73, 178, 102, 0.18);
     }
+    .study-col-1 {
+      box-shadow: inset 0 0 0 9999px rgba(255, 248, 196, 0.52);
+      border-left: 3px solid rgba(255, 193, 7, 0.38);
+    }
+    .study-col-2 {
+      box-shadow: inset 0 0 0 9999px rgba(230, 247, 255, 0.62);
+      border-left: 3px solid rgba(59, 130, 246, 0.28);
+    }
     .first-col-emphasis {
       font-size: 21px !important;
       font-weight: 800;
       letter-spacing: 0.2px;
-      box-shadow: inset 0 0 0 9999px rgba(255, 248, 196, 0.52);
     }
     .first-col-filter {
       font-size: 14px !important;
+    }
+    .second-col-emphasis {
+      font-size: 18px !important;
+      font-weight: 700;
+      letter-spacing: 0.12px;
+    }
+    .second-col-filter {
+      font-size: 13px !important;
     }
     .first-col-huge {
       font-size: 25px !important;
@@ -315,6 +330,15 @@
     }
     .first-col-filter-huge .filter-status {
       font-size: 12px !important;
+    }
+    .second-col-huge {
+      font-size: 21px !important;
+      font-weight: 800;
+      line-height: 1.18;
+    }
+    .second-col-filter-huge .header-filter-text,
+    .second-col-filter-huge .header-filter-select {
+      font-size: 14px !important;
     }
     tr.eliminated { background: #ffb46a !important; color: #502800 !important; text-decoration: line-through; font-weight: bold; }
     tr.eliminated button { background: #fff !important; color: #d60000 !important; font-size: 28px; font-weight: bold; }
@@ -366,6 +390,11 @@
       .first-col-huge { font-size: 22px !important; }
       .first-col-filter-huge .header-filter-text,
       .first-col-filter-huge .header-filter-select { font-size: 14px !important; }
+      .second-col-emphasis { font-size: 17px !important; }
+      .second-col-filter { font-size: 12px !important; }
+      .second-col-huge { font-size: 19px !important; }
+      .second-col-filter-huge .header-filter-text,
+      .second-col-filter-huge .header-filter-select { font-size: 13px !important; }
     }
     @media (pointer: coarse) {
       #columnPopover {
@@ -445,6 +474,9 @@
         <div id="columnPanelActions">
           <button class="tool-btn" onclick="showAllColumns()">全部显示</button>
           <button class="tool-btn" onclick="showOnlyCoreColumns()">仅前两列</button>
+          <button class="tool-btn" id="focusWordBtn" onclick="showWordFocusMode()">只看单词列</button>
+          <button class="tool-btn" id="focusPhoneticBtn" onclick="showPhoneticFocusMode()">只看音标列</button>
+          <button class="tool-btn" id="exitFocusBtn" onclick="exitStudyFocusMode()">退出专注</button>
           <button class="icon-btn" onclick="closeColumnPanel()">×</button>
         </div>
       </div>
@@ -483,6 +515,8 @@ let columnWidths = [];
 let visibleColumns = [];
 let selectedColumnIndex = -1;
 let firstColHugeMode = false;
+let studyFocusMode = "all";
+let preFocusVisibleColumns = null;
 let activeResize = null;
 let activeSliderDrag = null;
 let activeHeaderGesture = null;
@@ -709,6 +743,7 @@ function updateColumnToolBar() {
   const toolBar = document.getElementById("columnToolBar");
   const label = document.getElementById("selectedColumnLabel");
   const hugeBtn = document.getElementById("toggleFirstColHugeBtn");
+  const exitFocusBtn = document.getElementById("exitFocusBtn");
   if (!headers.length || !columnPanelVisible || selectedColumnIndex < 0 || visibleColumns[selectedColumnIndex] === false) {
     toolBar.style.display = "none";
     label.textContent = "";
@@ -719,6 +754,7 @@ function updateColumnToolBar() {
   toolBar.style.display = "flex";
   label.textContent = `当前列：${headers[selectedColumnIndex]}`;
   hugeBtn.textContent = firstColHugeMode ? "首列标准" : "首列超大";
+  exitFocusBtn.style.display = studyFocusMode === "all" ? "none" : "";
 }
 
 function renderColumnPanel() {
@@ -726,6 +762,9 @@ function renderColumnPanel() {
   const panel = document.getElementById("columnPanel");
   const list = document.getElementById("columnCheckboxList");
   const toggleBtn = document.getElementById("toggleColumnPanelBtn");
+  const focusWordBtn = document.getElementById("focusWordBtn");
+  const focusPhoneticBtn = document.getElementById("focusPhoneticBtn");
+  const exitFocusBtn = document.getElementById("exitFocusBtn");
   if (!headers.length) {
     popover.style.display = "none";
     panel.style.display = "none";
@@ -736,6 +775,11 @@ function renderColumnPanel() {
   toggleBtn.textContent = columnPanelVisible ? "收起列面板" : "列显示";
   popover.style.display = columnPanelVisible ? "block" : "none";
   panel.style.display = columnPanelVisible ? "block" : "none";
+  focusWordBtn.style.display = headers[0] ? "" : "none";
+  focusPhoneticBtn.style.display = headers[1] ? "" : "none";
+  exitFocusBtn.style.display = studyFocusMode === "all" ? "none" : "";
+  focusWordBtn.textContent = studyFocusMode === "word" ? "单词列专注中" : "只看单词列";
+  focusPhoneticBtn.textContent = studyFocusMode === "phonetic" ? "音标列专注中" : "只看音标列";
   syncVisibleColumns();
   list.innerHTML = headers.map((header, index) => {
     const checked = visibleColumns[index] !== false ? "checked" : "";
@@ -965,6 +1009,8 @@ function toggleColumnVisibility(index, checked) {
     renderColumnPanel();
     return;
   }
+  studyFocusMode = "all";
+  preFocusVisibleColumns = null;
   visibleColumns[index] = checked;
   if (!checked) {
     columnTextFilters[index] = "";
@@ -976,6 +1022,8 @@ function toggleColumnVisibility(index, checked) {
 
 function showAllColumns() {
   syncVisibleColumns(true);
+  studyFocusMode = "all";
+  preFocusVisibleColumns = null;
   ensureSelectedColumn();
   renderAll();
 }
@@ -983,6 +1031,8 @@ function showAllColumns() {
 function showOnlyCoreColumns() {
   syncVisibleColumns(true);
   visibleColumns = headers.map((_, index) => index < 2);
+  studyFocusMode = "all";
+  preFocusVisibleColumns = null;
   ensureSelectedColumn();
   renderAll();
 }
@@ -991,6 +1041,41 @@ function toggleFirstColHugeMode() {
   firstColHugeMode = !firstColHugeMode;
   saveProgress();
   renderAll();
+}
+
+function applyStudyFocusMode(mode) {
+  syncVisibleColumns();
+  if (mode === "all") {
+    if (preFocusVisibleColumns && preFocusVisibleColumns.length === headers.length) {
+      visibleColumns = preFocusVisibleColumns.slice();
+    } else {
+      visibleColumns = headers.map((_, index) => visibleColumns[index] !== false);
+    }
+    studyFocusMode = "all";
+    preFocusVisibleColumns = null;
+  } else {
+    if (studyFocusMode === "all") preFocusVisibleColumns = visibleColumns.slice();
+    visibleColumns = headers.map((_, index) => mode === "word" ? index === 0 : index === 1);
+    studyFocusMode = mode;
+  }
+  ensureSelectedColumn();
+  saveProgress();
+  renderAll();
+}
+
+function showWordFocusMode() {
+  if (!headers[0]) return;
+  applyStudyFocusMode("word");
+}
+
+function showPhoneticFocusMode() {
+  if (!headers[1]) return;
+  applyStudyFocusMode("phonetic");
+}
+
+function exitStudyFocusMode() {
+  if (studyFocusMode === "all") return;
+  applyStudyFocusMode("all");
 }
 
 function applySheetPayload(sheetName, nextHeaders, nextRows, resetSheetSelect) {
@@ -1085,9 +1170,11 @@ function tryRestore() {
       visibleColumns = obj.visibleColumns.map(value => value !== false);
     }
     firstColHugeMode = obj.firstColHugeMode === true;
+    studyFocusMode = typeof obj.studyFocusMode === "string" ? obj.studyFocusMode : "all";
     document.getElementById("fileNotice").textContent = `已恢复上次进度${currentSheetName ? "：" + currentSheetName : ""}`;
   } else {
     firstColHugeMode = false;
+    studyFocusMode = "all";
     document.getElementById("fileNotice").textContent = currentSheetName ? `已加载工作表：${currentSheetName}` : "";
   }
 }
@@ -1099,7 +1186,8 @@ function saveProgress() {
     currentPage,
     columnWidths,
     visibleColumns,
-    firstColHugeMode
+    firstColHugeMode,
+    studyFocusMode
   }));
 }
 
@@ -1111,7 +1199,8 @@ function exportProgress() {
     eliminatedWords: Array.from(eliminatedWords),
     columnWidths,
     visibleColumns,
-    firstColHugeMode
+    firstColHugeMode,
+    studyFocusMode
   };
   const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
   const link = document.createElement("a");
@@ -1144,6 +1233,7 @@ function importProgress() {
           visibleColumns = obj.visibleColumns.map(value => value !== false);
         }
         firstColHugeMode = obj.firstColHugeMode === true;
+        studyFocusMode = typeof obj.studyFocusMode === "string" ? obj.studyFocusMode : "all";
         ensureSelectedColumn();
         saveProgress();
         renderAll();
@@ -1164,6 +1254,8 @@ function resetViewState() {
   visibleColumns = [];
   selectedColumnIndex = -1;
   firstColHugeMode = false;
+  studyFocusMode = "all";
+  preFocusVisibleColumns = null;
   clearFilterState();
   document.getElementById("toggleHideBtn").textContent = "隐藏已消灭单词";
   document.getElementById("searchBox").value = "";
@@ -1426,17 +1518,22 @@ function renderTable() {
   `;
   const headerHtml = visibleColumnIndices.map(idx => {
     const header = headers[idx];
-    const isFirstVisibleColumn = idx === visibleColumnIndices[0];
+    const isWordColumn = idx === 0;
+    const isPhoneticColumn = idx === 1;
     const isAsc = headerSort.index === idx && headerSort.direction === "asc";
     const isDesc = headerSort.index === idx && headerSort.direction === "desc";
     const flag = getFilterStatus(idx) ? `<span class="th-flag">筛</span>` : "";
     const sticky = stickyConfig.get(idx);
     const stickyClass = sticky ? `sticky-col header-cell${sticky.last ? " sticky-divider" : ""}` : "";
     const selectedClass = selectedColumnIndex === idx ? " selected" : "";
-    const emphasisClass = isFirstVisibleColumn ? ` first-col-emphasis${firstColHugeMode ? " first-col-huge" : ""}` : "";
+    const studyClass = isWordColumn
+      ? ` study-col-1 first-col-emphasis${firstColHugeMode ? " first-col-huge" : ""}`
+      : isPhoneticColumn
+        ? ` study-col-2 second-col-emphasis${firstColHugeMode ? " second-col-huge" : ""}`
+        : "";
     const stickyStyle = sticky ? ` style="left:${sticky.left}px;"` : "";
     return `
-      <th id="header-cell-${idx}" class="resizable-th${selectedClass}${emphasisClass} ${stickyClass}"${stickyStyle} onclick="selectColumn(${idx})" onpointerdown="beginHeaderTouchResize(${idx}, event)">
+      <th id="header-cell-${idx}" class="resizable-th${selectedClass}${studyClass} ${stickyClass}"${stickyStyle} onclick="selectColumn(${idx})" onpointerdown="beginHeaderTouchResize(${idx}, event)">
         <div class="th-inner">
           <span class="th-label">${escapeHtml(header)} ${flag}</span>
           <span class="th-actions">
@@ -1449,17 +1546,22 @@ function renderTable() {
     `;
   }).join("");
   const filterHtml = visibleColumnIndices.map(idx => {
-    const isFirstVisibleColumn = idx === visibleColumnIndices[0];
+    const isWordColumn = idx === 0;
+    const isPhoneticColumn = idx === 1;
     const selectValue = columnExactFilters[idx] || FILTER_ALL;
     const optionsHtml = buildExactOptionsHtml(idx, filterOptionStateKey);
     const status = getFilterStatus(idx);
     const sticky = stickyConfig.get(idx);
     const stickyClass = sticky ? `sticky-col filter-cell${sticky.last ? " sticky-divider" : ""}` : "";
     const selectedClass = selectedColumnIndex === idx ? " selected" : "";
-    const emphasisClass = isFirstVisibleColumn ? ` first-col-filter${firstColHugeMode ? " first-col-filter-huge" : ""}` : "";
+    const studyClass = isWordColumn
+      ? ` study-col-1 first-col-filter${firstColHugeMode ? " first-col-filter-huge" : ""}`
+      : isPhoneticColumn
+        ? ` study-col-2 second-col-filter${firstColHugeMode ? " second-col-filter-huge" : ""}`
+        : "";
     const stickyStyle = sticky ? ` style="left:${sticky.left}px;"` : "";
     return `
-      <th class="resizable-filter-th${selectedClass}${emphasisClass} ${stickyClass}"${stickyStyle}>
+      <th class="resizable-filter-th${selectedClass}${studyClass} ${stickyClass}"${stickyStyle}>
         <div class="header-filter-box">
           <input class="header-filter-text" value="${escapeHtml(columnTextFilters[idx] || "")}" placeholder="包含内容" oninput="setColumnTextFilter(${idx}, this.value)">
           <select id="header-filter-select-${idx}" class="header-filter-select" onfocus="ensureExactOptionsLoaded(${idx})" onpointerdown="ensureExactOptionsLoaded(${idx})" onchange="setColumnExactFilter(${idx}, this.value)" ${selectValue === "__LAZY__" ? "" : ""}>${optionsHtml}</select>
@@ -1476,12 +1578,17 @@ function renderTable() {
     return `
       <tr class="${rowClass}">
         ${visibleColumnIndices.map(idx => {
-          const isFirstVisibleColumn = idx === visibleColumnIndices[0];
+          const isWordColumn = idx === 0;
+          const isPhoneticColumn = idx === 1;
           const sticky = stickyConfig.get(idx);
           const stickyClass = sticky ? `sticky-col${sticky.last ? " sticky-divider" : ""}` : "";
-          const emphasisClass = isFirstVisibleColumn ? ` first-col-emphasis${firstColHugeMode ? " first-col-huge" : ""}` : "";
+          const studyClass = isWordColumn
+            ? ` study-col-1 first-col-emphasis${firstColHugeMode ? " first-col-huge" : ""}`
+            : isPhoneticColumn
+              ? ` study-col-2 second-col-emphasis${firstColHugeMode ? " second-col-huge" : ""}`
+              : "";
           const stickyStyle = sticky ? ` style="left:${sticky.left}px;${eliminatedRow ? "background:#ffb46a;" : ""}"` : "";
-          return `<td class="${stickyClass}${emphasisClass}"${stickyStyle}>${escapeHtml(row[idx])}</td>`;
+          return `<td class="${stickyClass}${studyClass}"${stickyStyle}>${escapeHtml(row[idx])}</td>`;
         }).join("")}
         <td><button class="eliminate-btn" onclick="toggleEliminate('${encodeURIComponent(wordKey)}', event)">${eliminatedRow ? "↺" : "✕"}</button></td>
       </tr>
