@@ -295,26 +295,35 @@
     .sticky-divider {
       box-shadow: 2px 0 0 rgba(73, 178, 102, 0.18);
     }
+    .first-col-emphasis {
+      font-size: 21px !important;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+    .first-col-filter {
+      font-size: 14px !important;
+    }
     tr.eliminated { background: #ffb46a !important; color: #502800 !important; text-decoration: line-through; font-weight: bold; }
-    tr.eliminated button { background: #fff !important; color: #d60000 !important; font-size: 24px; font-weight: bold; }
+    tr.eliminated button { background: #fff !important; color: #d60000 !important; font-size: 28px; font-weight: bold; }
     tr.eliminated td { border-color: #db9900 !important; }
     .eliminate-btn {
-      background: #fff;
-      color: #d60000;
-      font-size: 28px;
+      background: #e53935;
+      color: #fff;
+      font-size: 30px;
       font-weight: bold;
       border: none;
       cursor: pointer;
-      width: 42px;
-      height: 42px;
-      border-radius: 10px;
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
       padding: 0;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       line-height: 1;
+      box-shadow: 0 2px 8px rgba(229, 57, 53, 0.28);
     }
-    .eliminate-btn:hover { background: #ffe3e3; }
+    .eliminate-btn:hover { background: #cc2f2f; }
     .empty-row { text-align: center; color: #618760; font-size: 17px; padding: 22px 10px; }
     #pageSliderWrap { position: fixed; right: 6px; top: 120px; z-index: 5; width: 36px; height: 66vh; display: none; }
     #pageSlider { position: relative; width: 100%; height: 100%; background: #d4f5c4; border-radius: 26px; }
@@ -339,6 +348,8 @@
       th, td { font-size: 15px; padding: 5px; }
       thead tr.filter-row th { top: 42px; }
       .th-inner, .header-filter-box { min-width: 72px; }
+      .first-col-emphasis { font-size: 19px !important; }
+      .first-col-filter { font-size: 13px !important; }
     }
     @media (pointer: coarse) {
       #columnPopover {
@@ -1383,15 +1394,17 @@ function renderTable() {
   `;
   const headerHtml = visibleColumnIndices.map(idx => {
     const header = headers[idx];
+    const isFirstVisibleColumn = idx === visibleColumnIndices[0];
     const isAsc = headerSort.index === idx && headerSort.direction === "asc";
     const isDesc = headerSort.index === idx && headerSort.direction === "desc";
     const flag = getFilterStatus(idx) ? `<span class="th-flag">筛</span>` : "";
     const sticky = stickyConfig.get(idx);
     const stickyClass = sticky ? `sticky-col header-cell${sticky.last ? " sticky-divider" : ""}` : "";
     const selectedClass = selectedColumnIndex === idx ? " selected" : "";
+    const emphasisClass = isFirstVisibleColumn ? " first-col-emphasis" : "";
     const stickyStyle = sticky ? ` style="left:${sticky.left}px;"` : "";
     return `
-      <th id="header-cell-${idx}" class="resizable-th${selectedClass} ${stickyClass}"${stickyStyle} onclick="selectColumn(${idx})" onpointerdown="beginHeaderTouchResize(${idx}, event)">
+      <th id="header-cell-${idx}" class="resizable-th${selectedClass}${emphasisClass} ${stickyClass}"${stickyStyle} onclick="selectColumn(${idx})" onpointerdown="beginHeaderTouchResize(${idx}, event)">
         <div class="th-inner">
           <span class="th-label">${escapeHtml(header)} ${flag}</span>
           <span class="th-actions">
@@ -1404,15 +1417,17 @@ function renderTable() {
     `;
   }).join("");
   const filterHtml = visibleColumnIndices.map(idx => {
+    const isFirstVisibleColumn = idx === visibleColumnIndices[0];
     const selectValue = columnExactFilters[idx] || FILTER_ALL;
     const optionsHtml = buildExactOptionsHtml(idx, filterOptionStateKey);
     const status = getFilterStatus(idx);
     const sticky = stickyConfig.get(idx);
     const stickyClass = sticky ? `sticky-col filter-cell${sticky.last ? " sticky-divider" : ""}` : "";
     const selectedClass = selectedColumnIndex === idx ? " selected" : "";
+    const emphasisClass = isFirstVisibleColumn ? " first-col-filter" : "";
     const stickyStyle = sticky ? ` style="left:${sticky.left}px;"` : "";
     return `
-      <th class="resizable-filter-th${selectedClass} ${stickyClass}"${stickyStyle}>
+      <th class="resizable-filter-th${selectedClass}${emphasisClass} ${stickyClass}"${stickyStyle}>
         <div class="header-filter-box">
           <input class="header-filter-text" value="${escapeHtml(columnTextFilters[idx] || "")}" placeholder="包含内容" oninput="setColumnTextFilter(${idx}, this.value)">
           <select id="header-filter-select-${idx}" class="header-filter-select" onfocus="ensureExactOptionsLoaded(${idx})" onpointerdown="ensureExactOptionsLoaded(${idx})" onchange="setColumnExactFilter(${idx}, this.value)" ${selectValue === "__LAZY__" ? "" : ""}>${optionsHtml}</select>
@@ -1429,10 +1444,12 @@ function renderTable() {
     return `
       <tr class="${rowClass}">
         ${visibleColumnIndices.map(idx => {
+          const isFirstVisibleColumn = idx === visibleColumnIndices[0];
           const sticky = stickyConfig.get(idx);
           const stickyClass = sticky ? `sticky-col${sticky.last ? " sticky-divider" : ""}` : "";
+          const emphasisClass = isFirstVisibleColumn ? " first-col-emphasis" : "";
           const stickyStyle = sticky ? ` style="left:${sticky.left}px;${eliminatedRow ? "background:#ffb46a;" : ""}"` : "";
-          return `<td class="${stickyClass}"${stickyStyle}>${escapeHtml(row[idx])}</td>`;
+          return `<td class="${stickyClass}${emphasisClass}"${stickyStyle}>${escapeHtml(row[idx])}</td>`;
         }).join("")}
         <td><button class="eliminate-btn" onclick="toggleEliminate('${encodeURIComponent(wordKey)}', event)">${eliminatedRow ? "↺" : "✕"}</button></td>
       </tr>
