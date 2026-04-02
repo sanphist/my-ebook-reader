@@ -343,6 +343,30 @@
     tr.eliminated { background: #ffb46a !important; color: #502800 !important; text-decoration: line-through; font-weight: bold; }
     tr.eliminated button { background: #fff !important; color: #d60000 !important; font-size: 28px; font-weight: bold; }
     tr.eliminated td { border-color: #db9900 !important; }
+    .action-header-cell {
+      text-align: center;
+      vertical-align: middle;
+    }
+    .action-cell {
+      width: 52px;
+      min-width: 52px;
+      padding: 0 !important;
+      text-align: center;
+      vertical-align: middle;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .action-cell:hover {
+      background: rgba(229, 57, 53, 0.08);
+    }
+    .action-cell:active {
+      background: rgba(229, 57, 53, 0.14);
+    }
+    .action-cell .eliminate-btn {
+      pointer-events: none;
+      margin: 0 auto;
+    }
     .eliminate-btn {
       background: #e53935;
       color: #fff;
@@ -1590,7 +1614,7 @@ function renderTable() {
           const stickyStyle = sticky ? ` style="left:${sticky.left}px;${eliminatedRow ? "background:#ffb46a;" : ""}"` : "";
           return `<td class="${stickyClass}${studyClass}"${stickyStyle}>${escapeHtml(row[idx])}</td>`;
         }).join("")}
-        <td><button class="eliminate-btn" onclick="toggleEliminate('${encodeURIComponent(wordKey)}', event)">${eliminatedRow ? "↺" : "✕"}</button></td>
+        <td class="action-cell" onclick="toggleEliminate('${encodeURIComponent(wordKey)}', event)" title="${eliminatedRow ? '恢复这个单词' : '消灭这个单词'}"><button class="eliminate-btn" tabindex="-1" aria-hidden="true">${eliminatedRow ? "↺" : "✕"}</button></td>
       </tr>
     `;
   }).join("");
@@ -1600,7 +1624,7 @@ function renderTable() {
   table.innerHTML = `
     ${colGroupHtml}
     <thead>
-      <tr class="header-row">${headerHtml}<th><div class="th-inner"><span class="th-label">✕</span></div></th></tr>
+      <tr class="header-row">${headerHtml}<th class="action-header-cell"><div class="th-inner"><span class="th-label">✕</span></div></th></tr>
       <tr class="filter-row">${filterHtml}<th></th></tr>
     </thead>
     <tbody>${emptyHtml}</tbody>
