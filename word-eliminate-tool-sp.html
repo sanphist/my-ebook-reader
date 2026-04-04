@@ -929,7 +929,8 @@ function estimateColumnWidth(index) {
   if (index === 0) return Math.max(MIN_COLUMN_WIDTH, baseWidth - 12);
   if (index === 1) return 36;
   if (index === 2) return 56;
-  if (index === 4) return baseWidth + 24;
+  if (index === 4) return Math.max(MIN_COLUMN_WIDTH, baseWidth - 12);
+  if (index === 9) return estimateColumnWidth(8);
   if (index >= 5 && index <= 25) return 24;
   return baseWidth;
 }
@@ -990,8 +991,8 @@ function ensureSelectedColumn() {
 function getStickyConfig(visibleIndices) {
   const stickyMap = new Map();
   let left = 0;
-  visibleIndices.slice(0, 2).forEach((columnIndex, order) => {
-    stickyMap.set(columnIndex, { left, last: order === 1 || visibleIndices.length === 1 });
+  visibleIndices.slice(0, 3).forEach((columnIndex, order) => {
+    stickyMap.set(columnIndex, { left, last: order === 2 || visibleIndices.length <= 3 });
     left += columnWidths[columnIndex];
   });
   return stickyMap;
