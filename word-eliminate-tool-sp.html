@@ -452,54 +452,6 @@
     }
 
 
-    .fk-big-th .th-inner {
-      min-width: 82px !important;
-      gap: 4px !important;
-      padding-right: 10px !important;
-    }
-    .fk-big-th .th-label {
-      font-size: 18px !important;
-      font-weight: 800 !important;
-      line-height: 1.15 !important;
-      word-break: break-word !important;
-    }
-    .fk-big-th .th-flag {
-      min-width: 18px !important;
-      height: 18px !important;
-      font-size: 10px !important;
-      font-weight: 700 !important;
-      padding: 0 4px !important;
-    }
-    .fk-big-filter .header-filter-box {
-      min-width: 82px !important;
-      gap: 4px !important;
-    }
-    .fk-big-filter .header-filter-text,
-    .fk-big-filter .header-filter-select {
-      font-size: 13px !important;
-      font-weight: 700 !important;
-      height: 30px !important;
-      min-height: 30px !important;
-      padding: 3px 5px !important;
-      line-height: 1.15 !important;
-    }
-    .fk-big-filter .filter-status {
-      font-size: 12px !important;
-      font-weight: 700 !important;
-      min-height: 12px !important;
-      line-height: 1.1 !important;
-    }
-    .fk-big-td {
-      font-size: 18px !important;
-      font-weight: 800 !important;
-      line-height: 1.18 !important;
-      padding: 5px 4px !important;
-      letter-spacing: 0.05px !important;
-      word-break: break-word !important;
-      white-space: normal !important;
-      overflow-wrap: anywhere !important;
-    }
-
 
     .col2-fixed-th .th-inner {
       min-width: 30px !important;
@@ -521,6 +473,39 @@
     .col2-fixed-filter .filter-status {
       min-height: 8px !important;
       line-height: 1 !important;
+    }
+
+
+    .fk-text-big {
+      font-size: 21px !important;
+      font-weight: 800 !important;
+      line-height: 1.18 !important;
+    }
+    .fk-header-big .th-label {
+      font-size: 21px !important;
+      font-weight: 800 !important;
+      line-height: 1.18 !important;
+    }
+    .fk-header-big .th-flag {
+      font-weight: 800 !important;
+    }
+    .col-g-violet {
+      background: #eee6ff !important;
+      color: #5b2c83 !important;
+    }
+    .col-h-orange {
+      background: #fff0df !important;
+      color: #8a4700 !important;
+    }
+    .sticky-col.col-g-violet {
+      background: #e7ddff !important;
+    }
+    .sticky-col.col-h-orange {
+      background: #ffe9d1 !important;
+    }
+    tr.eliminated .col-g-violet,
+    tr.eliminated .col-h-orange {
+      color: #502800 !important;
     }
 
 @media (max-width: 900px) {
@@ -899,6 +884,7 @@ function estimateColumnWidth(index) {
   if (index === 0) return Math.max(MIN_COLUMN_WIDTH, baseWidth - 12);
   if (index === 1) return 36;
   if (index === 2) return 56;
+  if (index === 4) return baseWidth + 24;
   if (index >= 5 && index <= 25) return 24;
   return baseWidth;
 }
@@ -1785,7 +1771,7 @@ function renderTable() {
         : "";
     const stickyStyle = sticky ? ` style="left:${sticky.left}px;"` : "";
     return `
-      <th id="header-cell-${idx}" class="resizable-th${idx === 1 ? " col2-fixed-th" : ""}${idx >= 5 && idx <= 25 ? " compact-fz-th" : ""}${idx >= 5 && idx <= 10 ? " fk-big-th" : ""}${selectedClass}${studyClass} ${stickyClass}"${stickyStyle} onclick="selectColumn(${idx})" onpointerdown="beginHeaderTouchResize(${idx}, event)">
+      <th id="header-cell-${idx}" class="resizable-th${idx === 1 ? " col2-fixed-th" : ""}${idx >= 5 && idx <= 25 ? " compact-fz-th" : ""}${idx >= 5 && idx <= 10 ? " fk-header-big" : ""}${idx === 6 ? " col-g-violet" : ""}${idx === 7 ? " col-h-orange" : ""}${selectedClass}${studyClass} ${stickyClass}"${stickyStyle} onclick="selectColumn(${idx})" onpointerdown="beginHeaderTouchResize(${idx}, event)">
         <div class="th-inner">
           <span class="th-label">${escapeHtml(header)} ${flag}</span>
           <span class="th-actions">
@@ -1813,7 +1799,7 @@ function renderTable() {
         : "";
     const stickyStyle = sticky ? ` style="left:${sticky.left}px;"` : "";
     return `
-      <th class="resizable-filter-th${idx === 1 ? " col2-fixed-filter" : ""}${idx >= 5 && idx <= 25 ? " compact-fz-filter" : ""}${idx >= 5 && idx <= 10 ? " fk-big-filter" : ""}${selectedClass}${studyClass} ${stickyClass}"${stickyStyle}>
+      <th class="resizable-filter-th${idx === 1 ? " col2-fixed-filter" : ""}${idx >= 5 && idx <= 25 ? " compact-fz-filter" : ""}${idx === 6 ? " col-g-violet" : ""}${idx === 7 ? " col-h-orange" : ""}${selectedClass}${studyClass} ${stickyClass}"${stickyStyle}>
         <div class="header-filter-box">
           <input class="header-filter-text" value="${escapeHtml(columnTextFilters[idx] || "")}" placeholder="支持空格或关系 + * ?" oninput="setColumnTextFilter(${idx}, this.value)">
           <select id="header-filter-select-${idx}" class="header-filter-select" onfocus="ensureExactOptionsLoaded(${idx})" onpointerdown="ensureExactOptionsLoaded(${idx})" onchange="setColumnExactFilter(${idx}, this.value)" ${selectValue === "__LAZY__" ? "" : ""}>${optionsHtml}</select>
@@ -1840,7 +1826,7 @@ function renderTable() {
               ? ` study-col-2 second-col-emphasis${firstColHugeMode ? " second-col-huge" : ""}`
               : "";
           const stickyStyle = sticky ? ` style="left:${sticky.left}px;${eliminatedRow ? "background:#ffb46a;" : ""}"` : "";
-          return `<td class="${idx >= 5 && idx <= 25 ? "compact-fz-td " : ""}${idx >= 5 && idx <= 10 ? "fk-big-td " : ""}${stickyClass}${studyClass}"${stickyStyle}>${escapeHtml(row[idx])}</td>`;
+          return `<td class="${idx >= 5 && idx <= 10 ? "fk-text-big " : ""}${idx === 6 ? "col-g-violet " : ""}${idx === 7 ? "col-h-orange " : ""}${idx >= 5 && idx <= 25 ? "compact-fz-td " : ""}${stickyClass}${studyClass}"${stickyStyle}>${escapeHtml(row[idx])}</td>`;
         }).join("")}
         <td class="action-cell" onclick="toggleEliminate('${encodeURIComponent(wordKey)}', event)" title="${eliminatedRow ? '恢复这个单词' : '消灭这个单词'}"><button class="eliminate-btn" tabindex="-1" aria-hidden="true">${eliminatedRow ? "↺" : "✕"}</button></td>
       </tr>
