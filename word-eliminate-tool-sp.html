@@ -4,53 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CocaCrush口渴单词消消乐</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">
-let pullRefreshBlockCount = 0;
-let pullStartY = 0;
-let pullBlockedThisGesture = false;
-let activePullTarget = null;
-
-function getScrollContainerFromTarget(target) {
-  if (!target || !target.closest) return document.querySelector(".page");
-  return target.closest(".table-wrap") || target.closest(".page") || document.querySelector(".page");
-}
-
-function getScrollTopOfTarget(el) {
-  if (!el) return 0;
-  return el.scrollTop || 0;
-}
-
-document.addEventListener("touchstart", event => {
-  if (!event.touches || !event.touches.length) return;
-  pullStartY = event.touches[0].clientY;
-  pullBlockedThisGesture = false;
-  activePullTarget = getScrollContainerFromTarget(event.target);
-}, { passive: true });
-
-document.addEventListener("touchmove", event => {
-  if (pullRefreshBlockCount >= 2 || !event.touches || !event.touches.length) return;
-  const currentY = event.touches[0].clientY;
-  const deltaY = currentY - pullStartY;
-  const container = activePullTarget || document.querySelector(".page");
-  const atTop = getScrollTopOfTarget(container) <= 0;
-  if (atTop && deltaY > 10) {
-    event.preventDefault();
-    pullBlockedThisGesture = true;
-  }
-}, { passive: false });
-
-document.addEventListener("touchend", () => {
-  if (pullBlockedThisGesture) {
-    pullRefreshBlockCount += 1;
-  }
-  pullBlockedThisGesture = false;
-  activePullTarget = null;
-}, { passive: true });
-
-</script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
-    html, body { height: 100%; overflow: hidden; }\n    body { margin: 0; font-family: "微软雅黑", sans-serif; background: #eafae4; color: #213421; overscroll-behavior-y: none; }
-    .page { padding: 10px 12px 16px; height: 100vh; overflow: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
+    body { margin: 0; font-family: "微软雅黑", sans-serif; background: #eafae4; color: #213421; }
+    .page { padding: 10px 12px 16px; }
     h2 { margin: 0 0 6px; color: #388e3c; font-size: 24px; line-height: 1.2; }
     #fileNotice { color: #d35c16; font-size: 13px; margin-left: 6px; }
     #sheetWrap {
@@ -133,8 +90,6 @@ document.addEventListener("touchend", () => {
     #topBtns { display: none; margin-bottom: 6px; }
     .table-wrap {
       overflow: auto;
-      overscroll-behavior-y: contain;
-      -webkit-overflow-scrolling: touch;
       background: #f6fef2;
       border-radius: 12px;
       box-shadow: 0 2px 8px 0 #b7e2b2;
@@ -929,8 +884,7 @@ function estimateColumnWidth(index) {
   if (index === 0) return Math.max(MIN_COLUMN_WIDTH, baseWidth - 12);
   if (index === 1) return 36;
   if (index === 2) return 56;
-  if (index === 4) return Math.max(MIN_COLUMN_WIDTH, baseWidth - 12);
-  if (index === 9) return estimateColumnWidth(8);
+  if (index === 4) return baseWidth + 24;
   if (index >= 5 && index <= 25) return 24;
   return baseWidth;
 }
@@ -991,8 +945,8 @@ function ensureSelectedColumn() {
 function getStickyConfig(visibleIndices) {
   const stickyMap = new Map();
   let left = 0;
-  visibleIndices.slice(0, 3).forEach((columnIndex, order) => {
-    stickyMap.set(columnIndex, { left, last: order === 2 || visibleIndices.length <= 3 });
+  visibleIndices.slice(0, 2).forEach((columnIndex, order) => {
+    stickyMap.set(columnIndex, { left, last: order === 1 || visibleIndices.length === 1 });
     left += columnWidths[columnIndex];
   });
   return stickyMap;
