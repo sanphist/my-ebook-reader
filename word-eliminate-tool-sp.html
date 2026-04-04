@@ -2062,44 +2062,26 @@ window.onresize = () => setTimeout(updateSlider, 200);
 
 function preventPageBounceRefresh() {
   let startY = 0;
-  let startX = 0;
-  let locked = false;
 
   document.addEventListener("touchstart", (e) => {
     if (!e.touches || !e.touches.length) return;
     startY = e.touches[0].clientY;
-    startX = e.touches[0].clientX;
-    locked = false;
   }, { passive: true });
 
   document.addEventListener("touchmove", (e) => {
     if (!e.touches || !e.touches.length) return;
-    const currentY = e.touches[0].clientY;
-    const currentX = e.touches[0].clientX;
-    const dy = currentY - startY;
-    const dx = currentX - startX;
-
-    if (Math.abs(dx) > Math.abs(dy)) return;
 
     const targetWrap = e.target && e.target.closest ? e.target.closest(".table-wrap") : null;
+    if (targetWrap) return;
 
-    if (targetWrap) {
-      const atInnerTop = targetWrap.scrollTop <= 0;
-      const atInnerBottom = targetWrap.scrollTop + targetWrap.clientHeight >= targetWrap.scrollHeight - 1;
-      if ((atInnerTop && dy > 0) || (atInnerBottom && dy < 0)) {
-        e.preventDefault();
-        locked = true;
-      }
-      return;
-    }
-
+    const currentY = e.touches[0].clientY;
+    const dy = currentY - startY;
     const scrollingEl = document.scrollingElement || document.documentElement;
     const atTop = scrollingEl.scrollTop <= 0;
-    const atBottom = scrollingEl.scrollTop + window.innerHeight >= scrollingEl.scrollHeight - 1;
 
-    if ((atTop && dy > 0) || (atBottom && dy < 0) || locked) {
+    // Only block downward pull at page top to reduce Chrome pull-to-refresh.
+    if (atTop && dy > 0) {
       e.preventDefault();
-      locked = true;
     }
   }, { passive: false });
 }
