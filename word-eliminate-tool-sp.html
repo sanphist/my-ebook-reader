@@ -99,7 +99,7 @@
       border-radius: 12px;
       box-shadow: 0 2px 8px 0 #b7e2b2;
       -webkit-overflow-scrolling: touch;
-      overscroll-behavior: contain;
+      overscroll-behavior: auto;
       touch-action: pan-x pan-y;
     }
     table {
@@ -395,6 +395,7 @@
       cursor: pointer;
       user-select: none;
       -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
     }
     .action-cell:hover {
       background: rgba(229, 57, 53, 0.08);
@@ -744,6 +745,7 @@ let filterOptionCache = new Map();
 let filterOptionCacheStateKey = "";
 let loadedFilterOptionKeys = new Set();
 let loadingFilterOptionKeys = new Set();
+let saveProgressTimer = null;
 const STORAGE_PREFIX = "eliminate_words_progress_kk_";
 const FILTER_ALL = "__ALL__";
 const FILTER_BLANK = "__BLANK__";
@@ -1280,6 +1282,9 @@ function startResize(index, event) {
   document.body.style.cursor = "col-resize";
   const th = document.getElementById(`header-cell-${index}`);
   if (th) th.classList.add("resizing");
+  window.addEventListener("pointermove", handlePointerMove, { passive: true });
+  window.addEventListener("pointerup", handlePointerUp, { passive: true });
+  window.addEventListener("pointercancel", handlePointerUp, { passive: true });
   event.preventDefault();
   event.stopPropagation();
 }
@@ -1512,6 +1517,9 @@ function handlePointerUp() {
   activeSliderDrag = null;
   document.body.style.userSelect = "";
   document.body.style.cursor = "";
+  window.removeEventListener("pointermove", handlePointerMove);
+  window.removeEventListener("pointerup", handlePointerUp);
+  window.removeEventListener("pointercancel", handlePointerUp);
 }
 
 function updateStatBar() {
@@ -1555,7 +1563,7 @@ function tryRestore() {
   }
 }
 
-function saveProgress() {
+function persistProgressNow() {
   localStorage.setItem(getStorageKey(), JSON.stringify({
     hash: fileHash,
     eliminatedWords: Array.from(eliminatedWords),
@@ -1565,6 +1573,21 @@ function saveProgress() {
     firstColHugeMode,
     studyFocusMode
   }));
+}
+
+function saveProgress(immediate = false) {
+  if (saveProgressTimer) {
+    clearTimeout(saveProgressTimer);
+    saveProgressTimer = null;
+  }
+  if (immediate) {
+    persistProgressNow();
+    return;
+  }
+  saveProgressTimer = setTimeout(() => {
+    saveProgressTimer = null;
+    persistProgressNow();
+  }, 120);
 }
 
 function exportProgress() {
@@ -1933,7 +1956,7 @@ function renderTable() {
         : "";
     const stickyStyle = sticky ? ` style="left:${sticky.left}px;"` : "";
     return `
-      <th id="header-cell-${idx}" class="resizable-th${idx === 1 ? " col2-fixed-th" : ""}${idx >= 13 && idx <= 25 ? " compact-fz-th" : ""}${idx >= 5 && idx <= 12 ? " uniform-study-th" : ""}${idx === 6 ? " col-7-purple" : ""}${idx === 8 ? " col-9-purple" : ""}${selectedClass}${studyClass} ${stickyClass}"${stickyStyle} onclick="selectColumn(${idx})" onpointerdown="beginHeaderTouchResize(${idx}, event)">
+      <th id="header-cell-${idx}" class="resizable-th${idx === 1 ? " col2-fixed-th" : ""}${idx >= 13 && idx <= 25 ? " compact-fz-th" : ""}${idx >= 5 && idx <= 12 ? " uniform-study-th" : ""}${idx === 6 ? " col-7-purple" : ""}${idx === 8 ? " col-9-purple" : ""}${selectedClass}${studyClass} ${stickyClass}"${stickyStyle} onclick="selectColumn(${idx})">
         <div class="th-inner">
           <span class="th-label">${escapeHtml(header)} ${flag}</span>
           <span class="th-actions">
@@ -1976,7 +1999,7 @@ function renderTable() {
     const eliminatedRow = eliminatedWords.has(wordKey);
     const rowClass = eliminatedRow ? "eliminated" : "";
     return `
-      <tr class="${rowClass}">
+      <tr class="${rowClass}" data-word-key="${escapeHtml(wordKey)}">
         ${visibleColumnIndices.map(idx => {
           const isWordColumn = idx === 0;
           const isPhoneticColumn = idx === 1;
@@ -2007,6 +2030,29 @@ function renderTable() {
   `;
   renderColumnPanel();
   updateColumnToolBar();
+  updateStatBar();
+}
+
+function applyEliminatedStateToVisibleRows(wordKey, eliminated) {
+  const safeKey = String(wordKey || "").replace(/\/g, "\\").replace(/"/g, '\"');
+  document.querySelectorAll(`tr[data-word-key="${safeKey}"]`).forEach(row => {
+    row.classList.toggle("eliminated", eliminated);
+    row.querySelectorAll('.sticky-col').forEach(cell => {
+      cell.style.background = eliminated ? '#ffb46a' : '';
+    });
+    const actionCell = row.querySelector('.action-cell');
+    if (actionCell) {
+      actionCell.title = eliminated ? '恢复这个单词' : '消灭这个单词';
+      const btn = actionCell.querySelector('.eliminate-btn');
+      if (btn) btn.textContent = eliminated ? '↺' : '✕';
+    }
+  });
+}
+
+function fastToggleEliminate(wordKey) {
+  const eliminated = eliminatedWords.has(wordKey);
+  applyEliminatedStateToVisibleRows(wordKey, eliminated);
+  saveProgress();
   updateStatBar();
 }
 
@@ -2047,8 +2093,12 @@ function toggleEliminate(wordKey, event) {
   const decoded = decodeURIComponent(wordKey);
   if (eliminatedWords.has(decoded)) eliminatedWords.delete(decoded);
   else eliminatedWords.add(decoded);
-  saveProgress();
-  renderAll();
+  if (hideEliminated) {
+    renderAll();
+    saveProgress();
+    return;
+  }
+  fastToggleEliminate(decoded);
 }
 
 function toggleHideEliminated() {
@@ -2185,15 +2235,14 @@ function updateSlider() {
       thumbHeight
     };
     document.body.style.userSelect = "none";
+    window.addEventListener("pointermove", handlePointerMove, { passive: true });
+    window.addEventListener("pointerup", handlePointerUp, { passive: true });
+    window.addEventListener("pointercancel", handlePointerUp, { passive: true });
   };
 }
 
-document.onmousemove = handlePointerMove;
-document.onmouseup = handlePointerUp;
-document.onpointermove = handlePointerMove;
-document.onpointerup = handlePointerUp;
-document.onpointercancel = handlePointerUp;
-document.addEventListener("pointerdown", maybeCloseColumnPanel);
+window.addEventListener("beforeunload", () => saveProgress(true));
+document.addEventListener("pointerdown", maybeCloseColumnPanel, { passive: true });
 window.onresize = () => setTimeout(updateSlider, 200);
 </script>
 </body>
