@@ -6,6 +6,11 @@
   <title>CocaCrush口渴单词消消乐</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
+    html, body {
+      overflow: auto;
+      touch-action: pan-x pan-y;
+      -webkit-overflow-scrolling: touch;
+    }
     body { margin: 0; font-family: "微软雅黑", sans-serif; background: #eafae4; color: #213421; }
     .page { padding: 10px 12px 16px; }
     h2 { margin: 0 0 6px; color: #388e3c; font-size: 24px; line-height: 1.2; }
@@ -494,19 +499,25 @@
     }
     .col2-fixed-filter .header-filter-box {
       min-width: 30px !important;
-      gap: 2px !important;
+      min-height: 92px !important;
+      height: 92px !important;
+      gap: 4px !important;
+      justify-content: flex-start !important;
     }
     .col2-fixed-filter .header-filter-text,
     .col2-fixed-filter .header-filter-select {
       width: 100% !important;
-      height: 20px !important;
-      min-height: 20px !important;
-      padding: 1px 2px !important;
-      line-height: 1.05 !important;
+      min-height: 32px !important;
+      height: 32px !important;
+      padding: 2px 3px !important;
+      line-height: 1.1 !important;
+      font-size: 11px !important;
     }
     .col2-fixed-filter .filter-status {
-      min-height: 8px !important;
+      min-height: 16px !important;
+      height: 16px !important;
       line-height: 1 !important;
+      font-size: 9px !important;
     }
 
 
@@ -523,22 +534,22 @@
     .fk-header-big .th-flag {
       font-weight: 800 !important;
     }
-    .col-g-violet {
-      background: #eee6ff !important;
-      color: #5b2c83 !important;
+    .col-7-purple {
+      background: #f4efff !important;
+      color: #6c55a3 !important;
     }
-    .col-h-orange {
-      background: #fff0df !important;
-      color: #8a4700 !important;
+    .col-9-purple {
+      background: #faf7ff !important;
+      color: #8a7ab4 !important;
     }
-    .sticky-col.col-g-violet {
-      background: #e7ddff !important;
+    .sticky-col.col-7-purple {
+      background: #efe8ff !important;
     }
-    .sticky-col.col-h-orange {
-      background: #ffe9d1 !important;
+    .sticky-col.col-9-purple {
+      background: #f7f2ff !important;
     }
-    tr.eliminated .col-g-violet,
-    tr.eliminated .col-h-orange {
+    tr.eliminated .col-7-purple,
+    tr.eliminated .col-9-purple {
       color: #502800 !important;
     }
 
@@ -1245,32 +1256,11 @@ function shouldIgnoreHeaderGesture(event) {
 }
 
 function beginHeaderTouchResize(index, event) {
-  if (!headers.length || event.pointerType !== "touch" || shouldIgnoreHeaderGesture(event)) return;
-  clearHeaderGesture();
-  activeHeaderGesture = {
-    index,
-    startX: event.clientX,
-    startY: event.clientY,
-    activated: false
-  };
-  headerLongPressTimer = setTimeout(() => {
-    if (!activeHeaderGesture || activeHeaderGesture.index !== index) return;
-    selectColumn(index);
-    const targetIndices = getResizeTargetIndices(index);
-    activeResize = {
-      index,
-      startX: activeHeaderGesture.startX,
-      startWidth: columnWidths[index],
-      pointerType: "touch",
-      targetIndices,
-      startWidths: columnWidths.slice()
-    };
-    activeHeaderGesture.activated = true;
-    document.body.style.userSelect = "none";
-    document.body.style.cursor = "col-resize";
-    const th = document.getElementById(`header-cell-${index}`);
-    if (th) th.classList.add("touch-resize-active");
-  }, HEADER_LONG_PRESS_MS);
+  if (!headers.length) return;
+  if (event.pointerType === "touch") {
+    return;
+  }
+  if (shouldIgnoreHeaderGesture(event)) return;
 }
 
 function startResize(index, event) {
@@ -1943,7 +1933,7 @@ function renderTable() {
         : "";
     const stickyStyle = sticky ? ` style="left:${sticky.left}px;"` : "";
     return `
-      <th id="header-cell-${idx}" class="resizable-th${idx === 1 ? " col2-fixed-th" : ""}${idx >= 13 && idx <= 25 ? " compact-fz-th" : ""}${idx >= 5 && idx <= 12 ? " uniform-study-th" : ""}${idx === 6 ? " col-g-violet" : ""}${idx === 7 ? " col-h-orange" : ""}${selectedClass}${studyClass} ${stickyClass}"${stickyStyle} onclick="selectColumn(${idx})" onpointerdown="beginHeaderTouchResize(${idx}, event)">
+      <th id="header-cell-${idx}" class="resizable-th${idx === 1 ? " col2-fixed-th" : ""}${idx >= 13 && idx <= 25 ? " compact-fz-th" : ""}${idx >= 5 && idx <= 12 ? " uniform-study-th" : ""}${idx === 6 ? " col-7-purple" : ""}${idx === 8 ? " col-9-purple" : ""}${selectedClass}${studyClass} ${stickyClass}"${stickyStyle} onclick="selectColumn(${idx})" onpointerdown="beginHeaderTouchResize(${idx}, event)">
         <div class="th-inner">
           <span class="th-label">${escapeHtml(header)} ${flag}</span>
           <span class="th-actions">
@@ -1971,7 +1961,7 @@ function renderTable() {
         : "";
     const stickyStyle = sticky ? ` style="left:${sticky.left}px;"` : "";
     return `
-      <th class="resizable-filter-th${idx === 1 ? " col2-fixed-filter" : ""}${idx >= 13 && idx <= 25 ? " compact-fz-filter" : ""}${idx >= 5 && idx <= 12 ? " uniform-study-filter" : ""}${idx === 6 ? " col-g-violet" : ""}${idx === 7 ? " col-h-orange" : ""}${selectedClass}${studyClass} ${stickyClass}"${stickyStyle}>
+      <th class="resizable-filter-th${idx === 1 ? " col2-fixed-filter" : ""}${idx >= 13 && idx <= 25 ? " compact-fz-filter" : ""}${idx >= 5 && idx <= 12 ? " uniform-study-filter" : ""}${idx === 6 ? " col-7-purple" : ""}${idx === 8 ? " col-9-purple" : ""}${selectedClass}${studyClass} ${stickyClass}"${stickyStyle}>
         <div class="header-filter-box">
           <input class="header-filter-text" value="${escapeHtml(columnTextFilters[idx] || "")}" placeholder="支持空格或关系 + * ?" oninput="setColumnTextFilter(${idx}, this.value)">
           <select id="header-filter-select-${idx}" class="header-filter-select" onfocus="ensureExactOptionsLoaded(${idx})" onpointerdown="ensureExactOptionsLoaded(${idx})" onchange="setColumnExactFilter(${idx}, this.value)" ${selectValue === "__LAZY__" ? "" : ""}>${optionsHtml}</select>
@@ -1998,7 +1988,7 @@ function renderTable() {
               ? ` study-col-2 second-col-emphasis${firstColHugeMode ? " second-col-huge" : ""}`
               : "";
           const stickyStyle = sticky ? ` style="left:${sticky.left}px;${eliminatedRow ? "background:#ffb46a;" : ""}"` : "";
-          return `<td class="${idx >= 5 && idx <= 12 ? "uniform-study-td " : ""}${idx === 6 ? "col-g-violet " : ""}${idx === 7 ? "col-h-orange " : ""}${idx >= 13 && idx <= 25 ? "compact-fz-td " : ""}${stickyClass}${studyClass}"${stickyStyle}>${escapeHtml(row[idx])}</td>`;
+          return `<td class="${idx >= 5 && idx <= 12 ? "uniform-study-td " : ""}${idx === 6 ? "col-7-purple " : ""}${idx === 8 ? "col-9-purple " : ""}${idx >= 13 && idx <= 25 ? "compact-fz-td " : ""}${stickyClass}${studyClass}"${stickyStyle}>${escapeHtml(row[idx])}</td>`;
         }).join("")}
         <td class="action-cell" onclick="toggleEliminate('${encodeURIComponent(wordKey)}', event)" title="${eliminatedRow ? '恢复这个单词' : '消灭这个单词'}"><button class="eliminate-btn" tabindex="-1" aria-hidden="true">${eliminatedRow ? "↺" : "✕"}</button></td>
       </tr>
