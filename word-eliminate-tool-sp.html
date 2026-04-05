@@ -543,14 +543,22 @@
       background: #fff4e8 !important;
       color: #a86a26 !important;
     }
+    .col-9-light-purple {
+      background: #faf7ff !important;
+      color: #7a69a8 !important;
+    }
     .sticky-col.col-7-purple {
       background: #efe8ff !important;
     }
     .sticky-col.col-8-light-orange {
       background: #ffeedf !important;
     }
+    .sticky-col.col-9-light-purple {
+      background: #f5f0ff !important;
+    }
     tr.eliminated .col-7-purple,
-    tr.eliminated .col-8-light-orange {
+    tr.eliminated .col-8-light-orange,
+    tr.eliminated .col-9-light-purple {
       color: #502800 !important;
     }
 
@@ -1142,14 +1150,39 @@ function setLoadingState(loading, text = "") {
   progressSubText.textContent = loading ? (arguments[2] || "") : "";
 }
 
+function expandMergedCells(sheet, rows) {
+  const merges = Array.isArray(sheet && sheet["!merges"]) ? sheet["!merges"] : [];
+  if (!merges.length) return rows;
+  const cloned = rows.map(row => Array.isArray(row) ? row.slice() : []);
+  merges.forEach(range => {
+    if (!range || !range.s || !range.e) return;
+    const startRow = range.s.r || 0;
+    const endRow = range.e.r || 0;
+    const startCol = range.s.c || 0;
+    const endCol = range.e.c || 0;
+    const topLeft = (((cloned[startRow] || [])[startCol]) ?? "");
+    for (let r = startRow; r <= endRow; r++) {
+      if (!cloned[r]) cloned[r] = [];
+      for (let c = startCol; c <= endCol; c++) {
+        if (cloned[r][c] === undefined || cloned[r][c] === "") cloned[r][c] = topLeft;
+      }
+    }
+  });
+  return cloned;
+}
+
 function parseWorkbookToCachedSheets(payload, fileType) {
   const workbook = XLSX.read(payload, {
     type: fileType === "csv-text" ? "string" : "array"
   });
-  return workbook.SheetNames.map(name => ({
-    name,
-    rows: XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, raw: false, defval: "" })
-  }));
+  return workbook.SheetNames.map(name => {
+    const sheet = workbook.Sheets[name];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" });
+    return {
+      name,
+      rows: expandMergedCells(sheet, rows)
+    };
+  });
 }
 
 function applyCachedWorkbookSheets() {
@@ -1930,7 +1963,7 @@ function renderTable() {
         : "";
     const stickyStyle = sticky ? ` style="left:${sticky.left}px;"` : "";
     return `
-      <th id="header-cell-${idx}" class="resizable-th${idx === 1 ? " col2-fixed-th" : ""}${idx >= 13 ? " uniform-study-th" : ""}${idx >= 5 && idx <= 12 ? " uniform-study-th" : ""}${idx === 6 ? " col-7-purple" : ""}${idx === 7 ? " col-8-light-orange" : ""}${selectedClass}${studyClass} ${stickyClass}"${stickyStyle} onclick="selectColumn(${idx})">
+      <th id="header-cell-${idx}" class="resizable-th${idx === 1 ? " col2-fixed-th" : ""}${idx >= 13 ? " uniform-study-th" : ""}${idx >= 5 && idx <= 12 ? " uniform-study-th" : ""}${idx === 6 ? " col-7-purple" : ""}${idx === 7 ? " col-8-light-orange" : ""}${idx === 8 ? " col-9-light-purple" : ""}${selectedClass}${studyClass} ${stickyClass}"${stickyStyle} onclick="selectColumn(${idx})">
         <div class="th-inner">
           <span class="th-label">${escapeHtml(header)} ${flag}</span>
           <span class="th-actions">
@@ -1958,7 +1991,7 @@ function renderTable() {
         : "";
     const stickyStyle = sticky ? ` style="left:${sticky.left}px;"` : "";
     return `
-      <th class="resizable-filter-th${idx === 1 ? " col2-fixed-filter" : ""}${idx >= 13 ? " uniform-study-filter" : ""}${idx >= 5 && idx <= 12 ? " uniform-study-filter" : ""}${idx === 6 ? " col-7-purple" : ""}${idx === 7 ? " col-8-light-orange" : ""}${selectedClass}${studyClass} ${stickyClass}"${stickyStyle}>
+      <th class="resizable-filter-th${idx === 1 ? " col2-fixed-filter" : ""}${idx >= 13 ? " uniform-study-filter" : ""}${idx >= 5 && idx <= 12 ? " uniform-study-filter" : ""}${idx === 6 ? " col-7-purple" : ""}${idx === 7 ? " col-8-light-orange" : ""}${idx === 8 ? " col-9-light-purple" : ""}${selectedClass}${studyClass} ${stickyClass}"${stickyStyle}>
         <div class="header-filter-box">
           <input class="header-filter-text" value="${escapeHtml(columnTextFilters[idx] || "")}" placeholder="支持空格或关系 + * ?" oninput="setColumnTextFilter(${idx}, this.value)">
           <select id="header-filter-select-${idx}" class="header-filter-select" onfocus="ensureExactOptionsLoaded(${idx})" onpointerdown="ensureExactOptionsLoaded(${idx})" onchange="setColumnExactFilter(${idx}, this.value)" ${selectValue === "__LAZY__" ? "" : ""}>${optionsHtml}</select>
@@ -1985,7 +2018,7 @@ function renderTable() {
               ? ` study-col-2 second-col-emphasis${firstColHugeMode ? " second-col-huge" : ""}`
               : "";
           const stickyStyle = sticky ? ` style="left:${sticky.left}px;${eliminatedRow ? "background:#ffb46a;" : ""}"` : "";
-          return `<td class="${idx >= 5 ? "uniform-study-td " : ""}${idx === 6 ? "col-7-purple " : ""}${idx === 7 ? "col-8-light-orange " : ""}${stickyClass}${studyClass}"${stickyStyle}>${escapeHtml(row[idx])}</td>`;
+          return `<td class="${idx >= 5 ? "uniform-study-td " : ""}${idx === 6 ? "col-7-purple " : ""}${idx === 7 ? "col-8-light-orange " : ""}${idx === 8 ? "col-9-light-purple " : ""}${stickyClass}${studyClass}"${stickyStyle}>${escapeHtml(row[idx])}</td>`;
         }).join("")}
         <td class="action-cell" onclick="toggleEliminate('${encodeURIComponent(wordKey)}', event)" title="${eliminatedRow ? '恢复这个单词' : '消灭这个单词'}"><button class="eliminate-btn" tabindex="-1" aria-hidden="true">${eliminatedRow ? "↺" : "✕"}</button></td>
       </tr>
