@@ -93,6 +93,9 @@
       background: #f6fef2;
       border-radius: 12px;
       box-shadow: 0 2px 8px 0 #b7e2b2;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      touch-action: pan-x pan-y;
     }
     table {
       border-collapse: collapse;
@@ -115,10 +118,18 @@
       z-index: 3;
       overflow: visible;
     }
-    thead tr.header-row th { top: 0; }
-    thead tr.filter-row th { top: 46px; z-index: 2; padding: 4px; background: #eefbe8; }
-    .th-inner { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-width: 82px; padding-right: 12px; }
-    .th-label { font-weight: 600; line-height: 1.25; word-break: break-word; }
+    thead tr.header-row th { top: 0; height: 56px; }
+    thead tr.filter-row th { top: 56px; z-index: 2; padding: 4px; background: #eefbe8; height: 106px; }
+    .th-inner { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-width: 82px; padding-right: 12px; width: 100%; }
+    .th-label {
+      font-weight: 700;
+      line-height: 1.05;
+      word-break: keep-all;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 15px;
+    }
     .th-flag {
       display: inline-flex;
       align-items: center;
@@ -145,9 +156,32 @@
     }
     .sort-btn:hover, .small-btn:hover { background: #b3e4ac; }
     .sort-btn.active { background: #49b266; color: #fff; }
-    .header-filter-box { display: flex; flex-direction: column; gap: 4px; min-width: 82px; }
-    .header-filter-text, .header-filter-select { width: 100%; font-size: 12px; padding: 3px 5px; box-sizing: border-box; }
-    .filter-status { font-size: 10px; color: #457341; line-height: 1.2; min-height: 12px; }
+    .header-filter-box {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 82px;
+      min-height: 92px;
+      justify-content: flex-start;
+    }
+    .header-filter-text, .header-filter-select {
+      width: 100%;
+      font-size: 12px;
+      padding: 3px 5px;
+      box-sizing: border-box;
+      min-height: 32px;
+      height: 32px;
+      line-height: 1.1;
+    }
+    .filter-status {
+      font-size: 10px;
+      color: #457341;
+      line-height: 1.2;
+      min-height: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+    }
     #columnPopover {
       display: none;
       position: fixed;
@@ -508,11 +542,53 @@
       color: #502800 !important;
     }
 
+
+    .uniform-study-th .th-inner,
+    .uniform-study-filter .header-filter-box {
+      min-width: 0 !important;
+    }
+    .uniform-study-th .th-label {
+      font-size: 15px !important;
+      font-weight: 700 !important;
+      white-space: nowrap !important;
+      word-break: keep-all !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+    .uniform-study-filter .header-filter-text,
+    .uniform-study-filter .header-filter-select {
+      font-size: 14px !important;
+      min-height: 36px !important;
+      height: 36px !important;
+    }
+    .uniform-study-filter .filter-status {
+      font-size: 12px !important;
+      min-height: 18px !important;
+      height: 18px !important;
+    }
+    .uniform-study-td {
+      font-size: 23px !important;
+      font-weight: 800 !important;
+      line-height: 1.18 !important;
+      text-align: center !important;
+      white-space: normal !important;
+      overflow-wrap: anywhere !important;
+      word-break: break-word !important;
+    }
+
+
+    .uniform-narrow-col {
+      width: 16px !important;
+      min-width: 16px !important;
+      max-width: 16px !important;
+    }
+
 @media (max-width: 900px) {
       .page { padding: 8px 8px 14px; }
       h2 { font-size: 21px; }
       th, td { font-size: 15px; padding: 5px; }
-      thead tr.filter-row th { top: 42px; }
+      thead tr.header-row th { height: 52px; }
+      thead tr.filter-row th { top: 52px; height: 100px; }
       .th-inner, .header-filter-box { min-width: 72px; }
       .first-col-emphasis { font-size: 19px !important; }
       .first-col-filter { font-size: 13px !important; }
@@ -664,6 +740,18 @@ const FILTER_NONBLANK = "__NONBLANK__";
 const MIN_COLUMN_WIDTH = 96;
 const FIT_MIN_COLUMN_WIDTH = 68;
 
+function getColumnMinWidth(index) {
+  if (index >= 5 && index <= 12) return 16;
+  if (index === 1) return 36;
+  if (index === 2) return 56;
+  return MIN_COLUMN_WIDTH;
+}
+
+function getColumnFixedWidth(index) {
+  if (index >= 5 && index <= 12) return 16;
+  return null;
+}
+
 const PRESET_GROUP_FILTERS = {
   6: [
     "ɑː* ɑ* a* æ*",
@@ -697,7 +785,9 @@ const PRESET_GROUP_FILTERS = {
     "s* z*",
     "θ* ð*",
     "ʃ* ʒ*",
-    "m* n* ŋ* l* r* h* ɹ* ɫ*"
+    "m* n* ŋ*",
+    "l* r* h* ɹ* ɫ*",
+    "j* w*"
   ],
   9: [
     "p* b*",
@@ -707,7 +797,9 @@ const PRESET_GROUP_FILTERS = {
     "s* z*",
     "θ* ð*",
     "ʃ* ʒ*",
-    "m* n* ŋ* l* r* h* ɹ* ɫ*"
+    "m* n* ŋ*",
+    "l* r* h* ɹ* ɫ*",
+    "j* w*"
   ]
 };
 
@@ -730,6 +822,10 @@ function isPresetGroupFilterValue(value) {
 const ACTION_COLUMN_WIDTH = 52;
 const TOUCH_RESIZE_SPEED = 2.2;
 const HEADER_LONG_PRESS_MS = 260;
+const STICKY_COLUMN_COUNT = 3;
+const FIXED_CORE_COLUMN_WIDTH = 72;
+const THIRD_STICKY_COLUMN_WIDTH = 92;
+const UNIFORM_STUDY_COLUMN_WIDTH = 16;
 
 function getStorageKey() {
   return STORAGE_PREFIX + (fileName || "unknown") + "_" + (currentSheetName || "sheet") + "_" + (fileHash || "0");
@@ -881,11 +977,10 @@ function estimateColumnWidth(index) {
     maxLength = Math.max(maxLength, normalizeCell(row[index]).length);
   }
   const baseWidth = Math.min(560, Math.max(MIN_COLUMN_WIDTH, maxLength * 18 + 36));
-  if (index === 0) return Math.max(MIN_COLUMN_WIDTH, baseWidth - 12);
-  if (index === 1) return 36;
-  if (index === 2) return 56;
+  if (index === 0 || index === 1) return FIXED_CORE_COLUMN_WIDTH;
+  if (index === 2) return THIRD_STICKY_COLUMN_WIDTH;
   if (index === 4) return baseWidth + 24;
-  if (index >= 5 && index <= 25) return 24;
+  if (index >= 5 && index <= 12) return UNIFORM_STUDY_COLUMN_WIDTH;
   return baseWidth;
 }
 
@@ -893,9 +988,11 @@ function syncColumnWidths(forceReset = false) {
   if (forceReset || columnWidths.length !== headers.length) {
     columnWidths = headers.map((_, index) => {
       const existing = columnWidths[index];
-      return typeof existing === "number" && existing >= MIN_COLUMN_WIDTH ? existing : estimateColumnWidth(index);
+      const fixed = getColumnFixedWidth(index);
+      if (fixed != null) return fixed;
+      const minWidth = getColumnMinWidth(index);
+      return typeof existing === "number" && existing >= minWidth ? existing : estimateColumnWidth(index);
     });
-    fitColumnWidthsToViewport();
   }
 }
 
@@ -906,21 +1003,32 @@ function fitColumnWidthsToViewport() {
   if (!wrap || !visibleIndices.length) return;
   const availableWidth = Math.max(wrap.clientWidth - ACTION_COLUMN_WIDTH - 12, 0);
   if (!availableWidth) return;
-  const sourceWidths = visibleIndices.map(index => Math.max(FIT_MIN_COLUMN_WIDTH, columnWidths[index] || estimateColumnWidth(index)));
+  const fixedIndices = visibleIndices.filter(index => getColumnFixedWidth(index) != null);
+  const flexIndices = visibleIndices.filter(index => getColumnFixedWidth(index) == null);
+  let usedWidth = 0;
+  fixedIndices.forEach(index => {
+    const fixed = getColumnFixedWidth(index);
+    columnWidths[index] = fixed;
+    usedWidth += fixed;
+  });
+  if (!flexIndices.length) return;
+  const remainingWidth = Math.max(availableWidth - usedWidth, 0);
+  const sourceWidths = flexIndices.map(index => Math.max(FIT_MIN_COLUMN_WIDTH, columnWidths[index] || estimateColumnWidth(index)));
   const totalWidth = sourceWidths.reduce((sum, width) => sum + width, 0);
   if (!totalWidth) return;
-  const scaledWidths = totalWidth <= availableWidth
-    ? sourceWidths.map(width => width * (availableWidth / totalWidth))
-    : sourceWidths.map(width => Math.max(FIT_MIN_COLUMN_WIDTH, width * (availableWidth / totalWidth)));
+  const scaledWidths = totalWidth <= remainingWidth
+    ? sourceWidths.map(width => width * (remainingWidth / totalWidth))
+    : sourceWidths.map(width => Math.max(FIT_MIN_COLUMN_WIDTH, width * (remainingWidth / totalWidth)));
   let roundedTotal = 0;
   scaledWidths.forEach((width, position) => {
     const rounded = position === scaledWidths.length - 1
-      ? Math.max(FIT_MIN_COLUMN_WIDTH, Math.round(availableWidth - roundedTotal))
+      ? Math.max(FIT_MIN_COLUMN_WIDTH, Math.round(remainingWidth - roundedTotal))
       : Math.max(FIT_MIN_COLUMN_WIDTH, Math.round(width));
-    columnWidths[visibleIndices[position]] = rounded;
+    columnWidths[flexIndices[position]] = rounded;
     roundedTotal += rounded;
   });
 }
+
 
 function getVisibleColumnIndices() {
   syncVisibleColumns();
@@ -945,8 +1053,8 @@ function ensureSelectedColumn() {
 function getStickyConfig(visibleIndices) {
   const stickyMap = new Map();
   let left = 0;
-  visibleIndices.slice(0, 2).forEach((columnIndex, order) => {
-    stickyMap.set(columnIndex, { left, last: order === 1 || visibleIndices.length === 1 });
+  visibleIndices.slice(0, STICKY_COLUMN_COUNT).forEach((columnIndex, order) => {
+    stickyMap.set(columnIndex, { left, last: order === STICKY_COLUMN_COUNT - 1 || order === visibleIndices.length - 1 });
     left += columnWidths[columnIndex];
   });
   return stickyMap;
@@ -1019,7 +1127,65 @@ function setLoadingState(loading, text = "") {
 
 function getWorkbookWorker() {
   if (workbookWorker) return workbookWorker;
-  workbookWorker = new Worker("./xlsx-worker.js");
+  const workerSource = `
+    importScripts("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
+    let cachedSheets = [];
+    function normalizeCell(value) {
+      if (value == null) return "";
+      return String(value).trim();
+    }
+    function prepareRows(rows) {
+      const safeRows = Array.isArray(rows) ? rows.filter(row => Array.isArray(row)) : [];
+      const width = safeRows.reduce((max, row) => Math.max(max, row.length), 0);
+      if (!width || !safeRows.length) return { headers: [], rows: [] };
+      const normalizedRows = safeRows.map(row => Array.from({ length: width }, (_, idx) => normalizeCell(row[idx])));
+      const headerRow = normalizedRows[0].map((value, idx) => value || ("列" + (idx + 1)));
+      const bodyRows = normalizedRows.slice(1).filter(row => row.some(cell => cell !== ""));
+      return { headers: headerRow, rows: bodyRows };
+    }
+    self.onmessage = event => {
+      const message = event.data || {};
+      try {
+        if (message.type === "loadWorkbook") {
+          const workbook = XLSX.read(message.payload, {
+            type: message.fileType === "csv-text" ? "string" : "array"
+          });
+          cachedSheets = workbook.SheetNames.map(name => ({
+            name,
+            rows: XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, raw: false, defval: "" })
+          }));
+          const firstSheet = cachedSheets[0] || { name: "Sheet1", rows: [] };
+          const prepared = prepareRows(firstSheet.rows);
+          self.postMessage({
+            type: "workbookLoaded",
+            sheetNames: cachedSheets.map(item => item.name),
+            sheetName: firstSheet.name,
+            headers: prepared.headers,
+            rows: prepared.rows
+          });
+          return;
+        }
+        if (message.type === "loadSheet") {
+          const found = cachedSheets.find(item => item.name === message.sheetName);
+          if (!found) throw new Error("未找到对应工作表");
+          const prepared = prepareRows(found.rows);
+          self.postMessage({
+            type: "sheetLoaded",
+            sheetName: found.name,
+            headers: prepared.headers,
+            rows: prepared.rows
+          });
+        }
+      } catch (error) {
+        self.postMessage({
+          type: "error",
+          message: error && error.message ? error.message : "解析工作簿失败"
+        });
+      }
+    };
+  `;
+  const workerBlob = new Blob([workerSource], { type: "application/javascript" });
+  workbookWorker = new Worker(URL.createObjectURL(workerBlob));
   workbookWorker.onmessage = event => {
     const message = event.data || {};
     if (message.type === "error") {
@@ -1130,7 +1296,8 @@ function startResize(index, event) {
 
 function autoFitColumn(index) {
   syncColumnWidths();
-  columnWidths[index] = estimateColumnWidth(index);
+  const fixed = getColumnFixedWidth(index);
+  columnWidths[index] = fixed != null ? fixed : estimateColumnWidth(index);
   renderTable();
   renderPagination();
   updateStatBar();
@@ -1141,7 +1308,8 @@ function resizeColumnsFromGesture(deltaX) {
   const isTouch = activeResize.pointerType === "touch";
   const scaledDelta = deltaX * (isTouch ? TOUCH_RESIZE_SPEED : 1);
   if (!isTouch) {
-    columnWidths[activeResize.index] = Math.max(MIN_COLUMN_WIDTH, activeResize.startWidth + scaledDelta);
+    const fixed = getColumnFixedWidth(activeResize.index);
+    columnWidths[activeResize.index] = fixed != null ? fixed : Math.max(getColumnMinWidth(activeResize.index), activeResize.startWidth + scaledDelta);
     applyRenderedColumnWidth(activeResize.index);
     return;
   }
@@ -1151,7 +1319,7 @@ function resizeColumnsFromGesture(deltaX) {
   } else {
     let remainingShrink = Math.abs(scaledDelta);
     for (const index of activeResize.targetIndices) {
-      const minWidth = index === activeResize.index ? FIT_MIN_COLUMN_WIDTH : FIT_MIN_COLUMN_WIDTH;
+      const minWidth = getColumnFixedWidth(index) != null ? getColumnFixedWidth(index) : FIT_MIN_COLUMN_WIDTH;
       const available = Math.max(0, nextWidths[index] - minWidth);
       if (!available) continue;
       const consumed = Math.min(available, remainingShrink);
@@ -1161,7 +1329,8 @@ function resizeColumnsFromGesture(deltaX) {
     }
   }
   activeResize.targetIndices.forEach(index => {
-    columnWidths[index] = Math.max(FIT_MIN_COLUMN_WIDTH, nextWidths[index]);
+    const fixed = getColumnFixedWidth(index);
+    columnWidths[index] = fixed != null ? fixed : Math.max(FIT_MIN_COLUMN_WIDTH, nextWidths[index]);
   });
   applyRenderedColumnWidths(activeResize.targetIndices);
 }
@@ -1177,7 +1346,10 @@ function adjustSelectedColumnWidth(delta) {
   ensureSelectedColumn();
   if (selectedColumnIndex < 0) return;
   syncColumnWidths();
-  columnWidths[selectedColumnIndex] = Math.max(MIN_COLUMN_WIDTH, columnWidths[selectedColumnIndex] + delta);
+  const fixed = getColumnFixedWidth(selectedColumnIndex);
+  if (fixed != null) { columnWidths[selectedColumnIndex] = fixed; } else {
+    columnWidths[selectedColumnIndex] = Math.max(getColumnMinWidth(selectedColumnIndex), columnWidths[selectedColumnIndex] + delta);
+  }
   renderTable();
   renderPagination();
 }
@@ -1378,7 +1550,7 @@ function tryRestore() {
     eliminatedWords = new Set(obj.eliminatedWords || []);
     currentPage = obj.currentPage || 1;
     if (Array.isArray(obj.columnWidths) && obj.columnWidths.length === headers.length) {
-      columnWidths = obj.columnWidths.map(value => Math.max(MIN_COLUMN_WIDTH, Number(value) || MIN_COLUMN_WIDTH));
+      columnWidths = obj.columnWidths.map((value, index) => { const fixed = getColumnFixedWidth(index); return fixed != null ? fixed : Math.max(getColumnMinWidth(index), Number(value) || getColumnMinWidth(index)); });
     }
     if (Array.isArray(obj.visibleColumns) && obj.visibleColumns.length === headers.length) {
       visibleColumns = obj.visibleColumns.map(value => value !== false);
@@ -1441,7 +1613,7 @@ function importProgress() {
         if (obj.hash !== fileHash) return alert("进度文档与当前词表不匹配！");
         eliminatedWords = new Set(obj.eliminatedWords || []);
         if (Array.isArray(obj.columnWidths) && obj.columnWidths.length === headers.length) {
-          columnWidths = obj.columnWidths.map(value => Math.max(MIN_COLUMN_WIDTH, Number(value) || MIN_COLUMN_WIDTH));
+          columnWidths = obj.columnWidths.map((value, index) => { const fixed = getColumnFixedWidth(index); return fixed != null ? fixed : Math.max(getColumnMinWidth(index), Number(value) || getColumnMinWidth(index)); });
         }
         if (Array.isArray(obj.visibleColumns) && obj.visibleColumns.length === headers.length) {
           visibleColumns = obj.visibleColumns.map(value => value !== false);
@@ -1771,7 +1943,7 @@ function renderTable() {
         : "";
     const stickyStyle = sticky ? ` style="left:${sticky.left}px;"` : "";
     return `
-      <th id="header-cell-${idx}" class="resizable-th${idx === 1 ? " col2-fixed-th" : ""}${idx >= 5 && idx <= 25 ? " compact-fz-th" : ""}${idx >= 5 && idx <= 10 ? " fk-header-big" : ""}${idx === 6 ? " col-g-violet" : ""}${idx === 7 ? " col-h-orange" : ""}${selectedClass}${studyClass} ${stickyClass}"${stickyStyle} onclick="selectColumn(${idx})" onpointerdown="beginHeaderTouchResize(${idx}, event)">
+      <th id="header-cell-${idx}" class="resizable-th${idx === 1 ? " col2-fixed-th" : ""}${idx >= 13 && idx <= 25 ? " compact-fz-th" : ""}${idx >= 5 && idx <= 12 ? " uniform-study-th" : ""}${idx === 6 ? " col-g-violet" : ""}${idx === 7 ? " col-h-orange" : ""}${selectedClass}${studyClass} ${stickyClass}"${stickyStyle} onclick="selectColumn(${idx})" onpointerdown="beginHeaderTouchResize(${idx}, event)">
         <div class="th-inner">
           <span class="th-label">${escapeHtml(header)} ${flag}</span>
           <span class="th-actions">
@@ -1799,7 +1971,7 @@ function renderTable() {
         : "";
     const stickyStyle = sticky ? ` style="left:${sticky.left}px;"` : "";
     return `
-      <th class="resizable-filter-th${idx === 1 ? " col2-fixed-filter" : ""}${idx >= 5 && idx <= 25 ? " compact-fz-filter" : ""}${idx === 6 ? " col-g-violet" : ""}${idx === 7 ? " col-h-orange" : ""}${selectedClass}${studyClass} ${stickyClass}"${stickyStyle}>
+      <th class="resizable-filter-th${idx === 1 ? " col2-fixed-filter" : ""}${idx >= 13 && idx <= 25 ? " compact-fz-filter" : ""}${idx >= 5 && idx <= 12 ? " uniform-study-filter" : ""}${idx === 6 ? " col-g-violet" : ""}${idx === 7 ? " col-h-orange" : ""}${selectedClass}${studyClass} ${stickyClass}"${stickyStyle}>
         <div class="header-filter-box">
           <input class="header-filter-text" value="${escapeHtml(columnTextFilters[idx] || "")}" placeholder="支持空格或关系 + * ?" oninput="setColumnTextFilter(${idx}, this.value)">
           <select id="header-filter-select-${idx}" class="header-filter-select" onfocus="ensureExactOptionsLoaded(${idx})" onpointerdown="ensureExactOptionsLoaded(${idx})" onchange="setColumnExactFilter(${idx}, this.value)" ${selectValue === "__LAZY__" ? "" : ""}>${optionsHtml}</select>
@@ -1826,7 +1998,7 @@ function renderTable() {
               ? ` study-col-2 second-col-emphasis${firstColHugeMode ? " second-col-huge" : ""}`
               : "";
           const stickyStyle = sticky ? ` style="left:${sticky.left}px;${eliminatedRow ? "background:#ffb46a;" : ""}"` : "";
-          return `<td class="${idx >= 5 && idx <= 10 ? "fk-text-big " : ""}${idx === 6 ? "col-g-violet " : ""}${idx === 7 ? "col-h-orange " : ""}${idx >= 5 && idx <= 25 ? "compact-fz-td " : ""}${stickyClass}${studyClass}"${stickyStyle}>${escapeHtml(row[idx])}</td>`;
+          return `<td class="${idx >= 5 && idx <= 12 ? "uniform-study-td " : ""}${idx === 6 ? "col-g-violet " : ""}${idx === 7 ? "col-h-orange " : ""}${idx >= 13 && idx <= 25 ? "compact-fz-td " : ""}${stickyClass}${studyClass}"${stickyStyle}>${escapeHtml(row[idx])}</td>`;
         }).join("")}
         <td class="action-cell" onclick="toggleEliminate('${encodeURIComponent(wordKey)}', event)" title="${eliminatedRow ? '恢复这个单词' : '消灭这个单词'}"><button class="eliminate-btn" tabindex="-1" aria-hidden="true">${eliminatedRow ? "↺" : "✕"}</button></td>
       </tr>
