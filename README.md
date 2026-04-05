@@ -1,5 +1,7 @@
 # my-ebook-reader
 
+https://sanphist.github.io/my-ebook-reader/word-eliminate-tool-spforSFLS.html
+
 https://sanphist.github.io/my-ebook-reader/word-eliminate-tool-sp.html
 
 https://sanphist.github.io/my-ebook-reader/word-eliminate-tool.html
