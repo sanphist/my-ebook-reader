@@ -1150,9 +1150,12 @@ function setLoadingState(loading, text = "") {
   progressSubText.textContent = loading ? (arguments[2] || "") : "";
 }
 
+function fillDownLeadingColumns(rows, columnCount = 3) {
+  return rows.map(row => Array.isArray(row) ? row.slice() : []);
+}
+
 function expandMergedCells(sheet, rows) {
   const merges = Array.isArray(sheet && sheet["!merges"]) ? sheet["!merges"] : [];
-  if (!merges.length) return rows;
   const cloned = rows.map(row => Array.isArray(row) ? row.slice() : []);
   merges.forEach(range => {
     if (!range || !range.s || !range.e) return;
