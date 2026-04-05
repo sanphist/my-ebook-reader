@@ -1150,8 +1150,28 @@ function setLoadingState(loading, text = "") {
   progressSubText.textContent = loading ? (arguments[2] || "") : "";
 }
 
-function fillDownLeadingColumns(rows, columnCount = 3) {
-  return rows.map(row => Array.isArray(row) ? row.slice() : []);
+function getSheetCellDisplayValue(sheet, rowIndex, colIndex) {
+  const address = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+  const cell = sheet[address];
+  if (!cell) return "";
+  if (cell.w != null && cell.w !== "") return normalizeCell(cell.w);
+  if (cell.v == null) return "";
+  return normalizeCell(cell.v);
+}
+
+function sheetToGrid(sheet) {
+  const ref = sheet && sheet['!ref'];
+  if (!ref) return [];
+  const range = XLSX.utils.decode_range(ref);
+  const rows = [];
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    const row = [];
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      row.push(getSheetCellDisplayValue(sheet, r, c));
+    }
+    rows.push(row);
+  }
+  return rows;
 }
 
 function expandMergedCells(sheet, rows) {
@@ -1176,11 +1196,14 @@ function expandMergedCells(sheet, rows) {
 
 function parseWorkbookToCachedSheets(payload, fileType) {
   const workbook = XLSX.read(payload, {
-    type: fileType === "csv-text" ? "string" : "array"
+    type: fileType === "csv-text" ? "string" : "array",
+    cellText: true,
+    cellFormula: true,
+    cellDates: true
   });
   return workbook.SheetNames.map(name => {
     const sheet = workbook.Sheets[name];
-    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" });
+    const rows = sheetToGrid(sheet);
     return {
       name,
       rows: expandMergedCells(sheet, rows)
