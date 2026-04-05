@@ -1138,89 +1138,25 @@ function setLoadingState(loading, text = "") {
   progressSubText.textContent = loading ? (arguments[2] || "") : "";
 }
 
+function parseWorkbookToCachedSheets(payload, fileType) {
+  const workbook = XLSX.read(payload, {
+    type: fileType === "csv-text" ? "string" : "array"
+  });
+  return workbook.SheetNames.map(name => ({
+    name,
+    rows: XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, raw: false, defval: "" })
+  }));
+}
+
+function applyCachedWorkbookSheets() {
+  const firstSheet = workbookSheets[0] || { name: "Sheet1", rows: [] };
+  const prepared = prepareRows(firstSheet.rows || []);
+  populateSheetSelect();
+  applySheetPayload(firstSheet.name, prepared.headers, prepared.rows, true);
+}
+
 function getWorkbookWorker() {
-  if (workbookWorker) return workbookWorker;
-  const workerSource = `
-    importScripts("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
-    let cachedSheets = [];
-    function normalizeCell(value) {
-      if (value == null) return "";
-      return String(value).trim();
-    }
-    function prepareRows(rows) {
-      const safeRows = Array.isArray(rows) ? rows.filter(row => Array.isArray(row)) : [];
-      const width = safeRows.reduce((max, row) => Math.max(max, row.length), 0);
-      if (!width || !safeRows.length) return { headers: [], rows: [] };
-      const normalizedRows = safeRows.map(row => Array.from({ length: width }, (_, idx) => normalizeCell(row[idx])));
-      const headerRow = normalizedRows[0].map((value, idx) => value || ("列" + (idx + 1)));
-      const bodyRows = normalizedRows.slice(1).filter(row => row.some(cell => cell !== ""));
-      return { headers: headerRow, rows: bodyRows };
-    }
-    self.onmessage = event => {
-      const message = event.data || {};
-      try {
-        if (message.type === "loadWorkbook") {
-          const workbook = XLSX.read(message.payload, {
-            type: message.fileType === "csv-text" ? "string" : "array"
-          });
-          cachedSheets = workbook.SheetNames.map(name => ({
-            name,
-            rows: XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, raw: false, defval: "" })
-          }));
-          const firstSheet = cachedSheets[0] || { name: "Sheet1", rows: [] };
-          const prepared = prepareRows(firstSheet.rows);
-          self.postMessage({
-            type: "workbookLoaded",
-            sheetNames: cachedSheets.map(item => item.name),
-            sheetName: firstSheet.name,
-            headers: prepared.headers,
-            rows: prepared.rows
-          });
-          return;
-        }
-        if (message.type === "loadSheet") {
-          const found = cachedSheets.find(item => item.name === message.sheetName);
-          if (!found) throw new Error("未找到对应工作表");
-          const prepared = prepareRows(found.rows);
-          self.postMessage({
-            type: "sheetLoaded",
-            sheetName: found.name,
-            headers: prepared.headers,
-            rows: prepared.rows
-          });
-        }
-      } catch (error) {
-        self.postMessage({
-          type: "error",
-          message: error && error.message ? error.message : "解析工作簿失败"
-        });
-      }
-    };
-  `;
-  const workerBlob = new Blob([workerSource], { type: "application/javascript" });
-  workbookWorker = new Worker(URL.createObjectURL(workerBlob));
-  workbookWorker.onmessage = event => {
-    const message = event.data || {};
-    if (message.type === "error") {
-      setLoadingState(false, "");
-      alert(message.message || "解析工作簿失败");
-      return;
-    }
-    if (message.type === "workbookLoaded") {
-      workbookSheets = (message.sheetNames || []).map(name => ({ name }));
-      populateSheetSelect();
-      applySheetPayload(message.sheetName, message.headers || [], message.rows || [], true);
-      return;
-    }
-    if (message.type === "sheetLoaded") {
-      applySheetPayload(message.sheetName, message.headers || [], message.rows || [], false);
-    }
-  };
-  workbookWorker.onerror = () => {
-    setLoadingState(false, "");
-    alert("后台解析工作簿失败");
-  };
-  return workbookWorker;
+  return null;
 }
 
 function applyRenderedColumnWidth(index) {
@@ -1664,8 +1600,16 @@ function resetViewState() {
 function activateSheet(sheetName) {
   const matched = workbookSheets.find(item => item.name === sheetName);
   if (!matched || isWorkerBusy || currentSheetName === sheetName && headers.length) return;
-  setLoadingState(true, `正在切换工作表：${sheetName}`, "正在后台载入当前工作表数据");
-  getWorkbookWorker().postMessage({ type: "loadSheet", sheetName });
+  setLoadingState(true, `正在切换工作表：${sheetName}`, "正在载入当前工作表数据");
+  requestAnimationFrame(() => {
+    try {
+      const prepared = prepareRows(matched.rows || []);
+      applySheetPayload(matched.name, prepared.headers, prepared.rows, false);
+    } catch (error) {
+      setLoadingState(false, "");
+      alert(error && error.message ? error.message : "切换工作表失败");
+    }
+  });
 }
 
 function populateSheetSelect() {
@@ -1691,8 +1635,16 @@ function loadWorkbook(file, arrayBuffer) {
   renderColumnPanel();
   updateColumnToolBar();
   document.getElementById("fileNotice").textContent = "";
-  setLoadingState(true, `正在后台解析：${file.name}`, "大表解析可能需要一些时间，请保持页面开启");
-  getWorkbookWorker().postMessage({ type: "loadWorkbook", fileType: "xlsx-array", payload: arrayBuffer }, [arrayBuffer]);
+  setLoadingState(true, `正在解析：${file.name}`, "文件读取完成后会立即载入第一个工作表");
+  requestAnimationFrame(() => {
+    try {
+      workbookSheets = parseWorkbookToCachedSheets(arrayBuffer, "xlsx-array");
+      applyCachedWorkbookSheets();
+    } catch (error) {
+      setLoadingState(false, "");
+      alert(error && error.message ? error.message : "解析工作簿失败");
+    }
+  });
 }
 
 function loadCsv(file, text) {
@@ -1705,8 +1657,16 @@ function loadCsv(file, text) {
   renderColumnPanel();
   updateColumnToolBar();
   document.getElementById("fileNotice").textContent = "";
-  setLoadingState(true, `正在后台解析：${file.name}`, "正在读取文本并准备工作表");
-  getWorkbookWorker().postMessage({ type: "loadWorkbook", fileType: "csv-text", payload: text });
+  setLoadingState(true, `正在解析：${file.name}`, "正在读取文本并准备工作表");
+  requestAnimationFrame(() => {
+    try {
+      workbookSheets = parseWorkbookToCachedSheets(text, "csv-text");
+      applyCachedWorkbookSheets();
+    } catch (error) {
+      setLoadingState(false, "");
+      alert(error && error.message ? error.message : "解析文本失败");
+    }
+  });
 }
 
 document.getElementById("fileInput").addEventListener("change", event => {
@@ -2034,7 +1994,7 @@ function renderTable() {
 }
 
 function applyEliminatedStateToVisibleRows(wordKey, eliminated) {
-  const safeKey = String(wordKey || "").replace(/\/g, "\\").replace(/"/g, '\"');
+  const safeKey = String(wordKey || "").replace(/\\/g, "\\\\").replace(/"/g, '\"');
   document.querySelectorAll(`tr[data-word-key="${safeKey}"]`).forEach(row => {
     row.classList.toggle("eliminated", eliminated);
     row.querySelectorAll('.sticky-col').forEach(cell => {
