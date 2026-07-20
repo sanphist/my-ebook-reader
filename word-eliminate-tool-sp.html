@@ -924,14 +924,16 @@ function isPHeaderColumn(index) {
 }
 
 function getColumnMinWidth(index) {
-  if (isPHeaderColumn(index) || index >= 5 && index <= 12) return 16;
+  if (isPHeaderColumn(index)) return MANUAL_NARROW_COLUMN_WIDTH;
+  if (index >= 5 && index <= 12) return 16;
   if (index === 1) return 36;
   if (index === 2) return 56;
   return MIN_COLUMN_WIDTH;
 }
 
 function getColumnFixedWidth(index) {
-  if (isPHeaderColumn(index) || index >= 5 && index <= 12) return 16;
+  if (isPHeaderColumn(index)) return null;
+  if (index >= 5 && index <= 12) return 16;
   return null;
 }
 
@@ -1228,6 +1230,7 @@ function estimateColumnWidth(index) {
     maxLength = Math.max(maxLength, normalizeCell(row[index]).length);
   }
   const baseWidth = Math.min(560, Math.max(MIN_COLUMN_WIDTH, maxLength * 18 + 36));
+  if (isPHeaderColumn(index)) return MANUAL_NARROW_COLUMN_WIDTH;
   if (index === 0 || index === 1) return FIXED_CORE_COLUMN_WIDTH;
   if (index === 2) return THIRD_STICKY_COLUMN_WIDTH;
   if (index === 4) return baseWidth + 24;
