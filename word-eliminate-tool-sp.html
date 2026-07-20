@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CocaCrush口渴单词消消乐</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" onerror="alert('Excel 解析组件加载失败，请检查网络后刷新页面')"></script>
   <style>
     html, body {
       overflow: auto;
@@ -78,6 +78,37 @@
     #clearHeaderFiltersBtn { background: #7ab76f; }
     #resetBtn { background: #b7c96c; color: #3a400e; margin-top: 8px; }
     #resetBtn:hover { background: #d4e38b; }
+    #clearProgressBtn { background: #c75b4d; color: #fff; margin-left: 6px; }
+    #clearProgressBtn:hover { background: #a94438; }
+    #undoBtn:disabled { opacity: 0.45; cursor: default; }
+    #pageSizeSelect {
+      border: 1px solid #b4e2b5;
+      border-radius: 6px;
+      background: #fff;
+      color: #224422;
+      font-size: 13px;
+      padding: 5px 7px;
+    }
+    .mode-btn.active { background: #277a43 !important; box-shadow: inset 0 0 0 2px rgba(255,255,255,.35); }
+    body.cover-word td.word-role .cell-text,
+    body.cover-phonetic td.phonetic-role .cell-text,
+    body.cover-meaning td.meaning-role .cell-text {
+      color: transparent;
+      text-shadow: 0 0 11px rgba(33,52,33,.72);
+      user-select: none;
+    }
+    body.cover-word td.word-role.revealed .cell-text,
+    body.cover-phonetic td.phonetic-role.revealed .cell-text,
+    body.cover-meaning td.meaning-role.revealed .cell-text {
+      color: inherit;
+      text-shadow: none;
+      user-select: text;
+    }
+    td.word-role, td.phonetic-role, td.meaning-role { cursor: pointer; }
+    button:focus-visible, select:focus-visible, input:focus-visible {
+      outline: 3px solid #1668c7;
+      outline-offset: 2px;
+    }
     #statBar { font-size: 13px; margin: 6px 0 4px; color: #276027; line-height: 1.35; }
     .pagination { margin: 6px 0; }
     .pagination button {
@@ -257,6 +288,28 @@
       gap: 6px;
       flex-wrap: wrap;
     }
+    .sticky-count-control {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      min-height: 30px;
+      padding: 0 7px;
+      border-radius: 7px;
+      background: #d8edd1;
+      color: #27502c;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    #stickyColumnCountSelect {
+      min-height: 28px;
+      border: 1px solid #9bc493;
+      border-radius: 6px;
+      background: #fff;
+      color: #244b29;
+      font-size: 13px;
+      padding: 0 5px;
+    }
     .icon-btn {
       border: none;
       border-radius: 6px;
@@ -380,7 +433,8 @@
       font-size: 14px !important;
     }
     tr.eliminated { background: #ffb46a !important; color: #502800 !important; text-decoration: line-through; font-weight: bold; }
-    tr.eliminated button { background: #fff !important; color: #d60000 !important; font-size: 28px; font-weight: bold; }
+    tr.eliminated .status-btn { background: #d92d20 !important; color: #fff !important; font-size: 22px; }
+    tr.eliminated .status-btn.active { background: #8f1710 !important; }
     tr.eliminated td { border-color: #db9900 !important; }
     .action-header-cell {
       text-align: center;
@@ -403,28 +457,30 @@
     .action-cell:active {
       background: rgba(229, 57, 53, 0.14);
     }
-    .action-cell .eliminate-btn {
-      pointer-events: none;
-      margin: 0 auto;
-    }
-    .eliminate-btn {
-      background: #e53935;
-      color: #fff;
-      font-size: 30px;
-      font-weight: bold;
+    tr.questioned { background: #ffd9d4 !important; color: #7a231b !important; font-weight: 600; }
+    tr.questioned td { border-color: #e5a39a !important; }
+    .action-buttons { display: flex; gap: 5px; align-items: stretch; justify-content: center; }
+    .action-cell .status-btn {
       border: none;
+      border-radius: 6px;
+      background: #d92d20;
+      color: #fff;
+      min-width: 39px;
+      min-height: 36px;
+      padding: 0 8px;
+      font-size: 22px;
+      font-weight: 800;
       cursor: pointer;
-      width: 44px;
-      height: 44px;
-      border-radius: 999px;
-      padding: 0;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      line-height: 1;
-      box-shadow: 0 2px 8px rgba(229, 57, 53, 0.28);
     }
-    .eliminate-btn:hover { background: #cc2f2f; }
+    .action-cell .status-btn.active { background: #8f1710; box-shadow: inset 0 0 0 3px #fff; }
+    .action-cell .eliminate-status-btn,
+    tr.eliminated .eliminate-status-btn,
+    tr.eliminated .eliminate-status-btn.active {
+      background: #ffb46a !important;
+      color: #502800 !important;
+    }
+    .action-cell .status-btn:active { transform: scale(.96); }
+
     .empty-row { text-align: center; color: #618760; font-size: 17px; padding: 22px 10px; }
     #pageSliderWrap { position: fixed; right: 6px; top: 120px; z-index: 5; width: 36px; height: 66vh; display: none; }
     #pageSlider { position: relative; width: 100%; height: 100%; background: #d4f5c4; border-radius: 26px; }
@@ -622,6 +678,18 @@
       .second-col-filter-huge .header-filter-select { font-size: 13px !important; }
     }
     @media (pointer: coarse) {
+      #btnBar button, #topBtns button, #resetBtn, #clearProgressBtn {
+        min-height: 44px;
+        padding: 8px 13px;
+        font-size: 15px;
+      }
+      #fileInput, #sheetSelect, #sortSelect, #searchBox, #pageSizeSelect {
+        min-height: 42px;
+        font-size: 15px;
+      }
+      #searchBox { width: 190px; }
+      .action-cell { min-width: 100px; }
+      .action-cell .status-btn { min-width: 44px; min-height: 44px; }
       #columnPopover {
         top: 48px;
         right: 6px;
@@ -669,6 +737,8 @@
     <button onclick="toggleHideEliminated()" id="toggleHideBtn">隐藏已消灭单词</button>
     <button onclick="exportProgress()">导出进度文档</button>
     <button onclick="importProgress()">导入进度文档</button>
+    <button onclick="exportCSV('unprocessed')">导出未知单词</button>
+    <button onclick="exportCSV('questioned')">导出问号单词</button>
     <select id="sortSelect">
       <option value="origin">原顺序</option>
       <option value="alpha-asc">首字母A-Z</option>
@@ -678,11 +748,23 @@
       <option value="len-asc">单词字符数小到大</option>
       <option value="len-desc">单词字符数大到小</option>
     </select>
-    <input id="searchBox" placeholder="关键词/支持*?">
+    <input id="searchBox" placeholder="关键词（默认包含，支持*?）">
     <button onclick="doSearch()">关键词查找</button>
     <button onclick="clearSearch()">清除查询</button>
     <button id="clearHeaderFiltersBtn" onclick="clearHeaderFilters()">清空表头筛选</button>
     <button onclick="toggleColumnPanel()" id="toggleColumnPanelBtn">列显示</button>
+    <select id="pageSizeSelect" aria-label="每页显示条数" onchange="setPageSize(this.value)">
+      <option value="50">每页 50</option>
+      <option value="100" selected>每页 100</option>
+      <option value="200">每页 200</option>
+      <option value="300">每页 300</option>
+    </select>
+    <button id="undoBtn" onclick="undoLastAction()" disabled>撤销上一步</button>
+    <button onclick="batchSetVisible(true)">当前筛选全部消灭</button>
+    <button onclick="batchSetVisible(false)">当前筛选全部恢复</button>
+    <button class="mode-btn" id="coverWordBtn" onclick="toggleCoverMode('word')">遮住单词</button>
+    <button class="mode-btn" id="coverPhoneticBtn" onclick="toggleCoverMode('phonetic')">遮住音标</button>
+    <button class="mode-btn" id="coverMeaningBtn" onclick="toggleCoverMode('meaning')">遮住释义</button>
   </div>
   <div id="columnPopover">
     <div id="columnToolBar">
@@ -699,6 +781,15 @@
         <div id="columnPanelActions">
           <button class="tool-btn" onclick="showAllColumns()">全部显示</button>
           <button class="tool-btn" onclick="showOnlyCoreColumns()">仅前三列</button>
+          <label class="sticky-count-control">锁定
+            <select id="stickyColumnCountSelect" onchange="setStickyColumnCount(this.value)" aria-label="选择锁定前几列">
+              <option value="1">前1列</option>
+              <option value="2">前2列</option>
+              <option value="3" selected>前3列</option>
+              <option value="4">前4列</option>
+              <option value="5">前5列</option>
+            </select>
+          </label>
           <button class="tool-btn" id="focusWordBtn" onclick="showWordFocusMode()">只看单词列</button>
           <button class="tool-btn" id="focusPhoneticBtn" onclick="showPhoneticFocusMode()">只看音标列</button>
           <button class="tool-btn" id="focusMeaningBtn" onclick="showMeaningFocusMode()">只看释义列</button>
@@ -712,22 +803,25 @@
   <div id="statBar"></div>
   <div class="pagination" id="pagination"></div>
   <div id="topBtns">
-    <button onclick="exportCSV('eliminated')">导出已消灭单词</button>
-    <button onclick="exportCSV('remaining')">导出剩余单词</button>
+    <button onclick="exportCSV('all')">导出总进度</button>
   </div>
   <div class="table-wrap">
     <table id="wordTable"></table>
   </div>
-  <div><button id="resetBtn" onclick="resetAll()">全部重置</button></div>
+  <div>
+    <button id="resetBtn" onclick="resetView()">重置视图</button>
+    <button id="clearProgressBtn" onclick="clearLearningProgress()">清空学习进度</button>
+  </div>
 </div>
 <div id="pageSliderWrap"><div id="pageSlider"></div></div>
 <script>
 let data = [];
 let origData = [];
 let eliminatedWords = new Set();
+let questionedWords = new Set();
 let workbookSheets = [];
 let headers = [];
-let pageSize = 300;
+let pageSize = 100;
 let currentPage = 1;
 let fileHash = "";
 let fileName = "";
@@ -755,6 +849,12 @@ let filterOptionCacheStateKey = "";
 let loadedFilterOptionKeys = new Set();
 let loadingFilterOptionKeys = new Set();
 let saveProgressTimer = null;
+let undoStack = [];
+let coverMode = "none";
+let stickyColumnCount = 3;
+let filterInputTimer = null;
+let lastStorageError = "";
+const PROGRESS_VERSION = 2;
 const STORAGE_PREFIX = "eliminate_words_progress_kk_";
 const FILTER_ALL = "__ALL__";
 const FILTER_BLANK = "__BLANK__";
@@ -841,19 +941,32 @@ function isPresetGroupFilterValue(value) {
   return String(value || "").startsWith("__GROUP__:");
 }
 
-const ACTION_COLUMN_WIDTH = 52;
+const ACTION_COLUMN_WIDTH = 100;
 const TOUCH_RESIZE_SPEED = 2.2;
 const HEADER_LONG_PRESS_MS = 260;
-const STICKY_COLUMN_COUNT = 3;
+const MAX_STICKY_COLUMN_COUNT = 5;
 const FIXED_CORE_COLUMN_WIDTH = 72;
 const THIRD_STICKY_COLUMN_WIDTH = 92;
 const UNIFORM_STUDY_COLUMN_WIDTH = 16;
 
-function getStorageKey() {
-  return STORAGE_PREFIX + (fileName || "unknown") + "_" + (currentSheetName || "sheet") + "_" + (fileHash || "0");
+function getStorageKey(hashValue = fileHash) {
+  return STORAGE_PREFIX + (fileName || "unknown") + "_" + (currentSheetName || "sheet") + "_" + (hashValue || "0");
 }
 
 function quickHash(arr) {
+  // 对完整规范化数据计算双 32 位指纹，避免旧版只读取前 4000 字符造成误匹配。
+  const s = JSON.stringify(arr);
+  let h1 = 0x811c9dc5;
+  let h2 = 0x9e3779b9;
+  for (let i = 0; i < s.length; i++) {
+    const code = s.charCodeAt(i);
+    h1 = Math.imul(h1 ^ code, 0x01000193);
+    h2 = Math.imul(h2 ^ code, 0x85ebca6b);
+  }
+  return `v${PROGRESS_VERSION}_${(h1 >>> 0).toString(16)}${(h2 >>> 0).toString(16)}_${s.length}`;
+}
+
+function legacyQuickHash(arr) {
   const s = JSON.stringify(arr).slice(0, 4000);
   let hash = 0;
   for (let i = 0; i < s.length; i++) {
@@ -863,6 +976,34 @@ function quickHash(arr) {
   return hash + "_" + (arr.length || 0);
 }
 
+function safeStorageGet(key) {
+  try { return localStorage.getItem(key); }
+  catch (error) { lastStorageError = error.message || "浏览器存储不可用"; return null; }
+}
+
+function safeStorageSet(key, value) {
+  try { localStorage.setItem(key, value); lastStorageError = ""; return true; }
+  catch (error) {
+    lastStorageError = error.message || "浏览器存储空间不足";
+    document.getElementById("fileNotice").textContent = `自动保存失败：${lastStorageError}`;
+    return false;
+  }
+}
+
+function safeStorageRemove(key) {
+  try { localStorage.removeItem(key); return true; }
+  catch (error) { lastStorageError = error.message || "无法清除浏览器存储"; return false; }
+}
+
+function normalizeImportedStatus(items) {
+  const values = Array.isArray(items) ? items.map(value => String(value)) : [];
+  const rowIds = new Set(origData.map(getWordKey));
+  if (values.every(value => value.startsWith("row:"))) {
+    return new Set(values.filter(value => rowIds.has(value)));
+  }
+  const legacyWords = new Set(values.map(value => normalizeCell(value).toLowerCase()));
+  return new Set(origData.filter(row => legacyWords.has(getWordValue(row).toLowerCase())).map(getWordKey));
+}
 function normalizeCell(value) {
   if (value == null) return "";
   return String(value).trim();
@@ -874,18 +1015,44 @@ function prepareRows(rows) {
   if (!width || !safeRows.length) return { headers: [], rows: [] };
   const normalizedRows = safeRows.map(row => Array.from({ length: width }, (_, idx) => normalizeCell(row[idx])));
   const headerRow = normalizedRows[0].map((value, idx) => value || `列${idx + 1}`);
-  const bodyRows = normalizedRows.slice(1).filter(row => row.some(cell => cell !== ""));
+  const bodyRows = normalizedRows.slice(1).map((row, index) => {
+    row._rowId = `row:${index + 2}`;
+    return row;
+  }).filter(row => row.some(cell => cell !== ""));
   return { headers: headerRow, rows: bodyRows };
 }
 
+function cloneRow(row) {
+  const cloned = row.slice();
+  cloned._rowId = row._rowId;
+  return cloned;
+}
+
+function findHeaderAlias(aliases, fallback) {
+  const normalizedAliases = aliases.map(alias => normalizeCell(alias).toLowerCase());
+  const idx = headers.findIndex(header => normalizedAliases.includes(normalizeCell(header).toLowerCase()));
+  return idx >= 0 ? idx : Math.min(fallback, Math.max(headers.length - 1, 0));
+}
+
 function getWordColumnIndex() {
-  let idx = headers.findIndex(h => normalizeCell(h).toLowerCase().includes("word"));
-  if (idx < 0) idx = 0;
-  return idx;
+  return findHeaderAlias(["单词", "word"], 0);
+}
+
+function getPhoneticColumnIndex() {
+  return findHeaderAlias(["ipa", "音标"], 1);
+}
+
+function getMeaningColumnIndex() {
+  const translationIndex = headers.findIndex(header => normalizeCell(header).toLowerCase().includes("翻译"));
+  return findHeaderAlias(["释义", "解释", "中文翻译"], translationIndex >= 0 ? translationIndex : 2);
 }
 
 function getWordKey(row) {
-  return normalizeCell(row[getWordColumnIndex()]).toLowerCase();
+  return row && row._rowId ? row._rowId : `legacy:${normalizeCell(row && row[getWordColumnIndex()]).toLowerCase()}`;
+}
+
+function getWordValue(row) {
+  return normalizeCell(row && row[getWordColumnIndex()]);
 }
 
 function escapeHtml(value) {
@@ -921,9 +1088,10 @@ function escapeWildcardSource(text) {
 function buildWildcardRegExp(keyword) {
   let pattern = normalizeCell(keyword);
   if (!pattern) return null;
+  const hasWildcard = /[*?]/.test(pattern);
   pattern = escapeWildcardSource(pattern);
   pattern = pattern.replace(/\*/g, ".*").replace(/\?/g, ".");
-  return new RegExp("^" + pattern + "$", "i");
+  return new RegExp(hasWildcard ? "^" + pattern + "$" : pattern, "i");
 }
 
 function buildWildcardRegExpList(text) {
@@ -1075,8 +1243,9 @@ function ensureSelectedColumn() {
 function getStickyConfig(visibleIndices) {
   const stickyMap = new Map();
   let left = 0;
-  visibleIndices.slice(0, STICKY_COLUMN_COUNT).forEach((columnIndex, order) => {
-    stickyMap.set(columnIndex, { left, last: order === STICKY_COLUMN_COUNT - 1 || order === visibleIndices.length - 1 });
+  const lockedIndices = visibleIndices.slice(0, stickyColumnCount);
+  lockedIndices.forEach((columnIndex, order) => {
+    stickyMap.set(columnIndex, { left, last: order === lockedIndices.length - 1 });
     left += columnWidths[columnIndex];
   });
   return stickyMap;
@@ -1106,6 +1275,7 @@ function renderColumnPanel() {
   const panel = document.getElementById("columnPanel");
   const list = document.getElementById("columnCheckboxList");
   const toggleBtn = document.getElementById("toggleColumnPanelBtn");
+  const stickyCountSelect = document.getElementById("stickyColumnCountSelect");
   const focusWordBtn = document.getElementById("focusWordBtn");
   const focusPhoneticBtn = document.getElementById("focusPhoneticBtn");
   const focusMeaningBtn = document.getElementById("focusMeaningBtn");
@@ -1118,11 +1288,12 @@ function renderColumnPanel() {
     return;
   }
   toggleBtn.textContent = columnPanelVisible ? "收起列面板" : "列显示";
+  if (stickyCountSelect) stickyCountSelect.value = String(stickyColumnCount);
   popover.style.display = columnPanelVisible ? "block" : "none";
   panel.style.display = columnPanelVisible ? "block" : "none";
-  focusWordBtn.style.display = headers[0] ? "" : "none";
-  focusPhoneticBtn.style.display = headers[1] ? "" : "none";
-  focusMeaningBtn.style.display = headers[2] ? "" : "none";
+  focusWordBtn.style.display = headers[getWordColumnIndex()] ? "" : "none";
+  focusPhoneticBtn.style.display = headers[getPhoneticColumnIndex()] ? "" : "none";
+  focusMeaningBtn.style.display = headers[getMeaningColumnIndex()] ? "" : "none";
   exitFocusBtn.style.display = studyFocusMode === "all" ? "none" : "";
   focusWordBtn.textContent = studyFocusMode === "word" ? "单词列专注中" : "只看单词列";
   focusPhoneticBtn.textContent = studyFocusMode === "phonetic" ? "音标列专注中" : "只看音标列";
@@ -1219,7 +1390,54 @@ function applyCachedWorkbookSheets() {
 }
 
 function getWorkbookWorker() {
-  return null;
+  if (workbookWorker) return workbookWorker;
+  if (typeof Worker === "undefined") return null;
+  const workerSource = `
+    self.onmessage = event => {
+      try {
+        importScripts("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
+        const type = event.data.fileType === "csv-text" ? "string" : "array";
+        const workbook = XLSX.read(event.data.payload, { type, cellText: true, cellFormula: true, cellDates: true });
+        const sheets = workbook.SheetNames.map(name => {
+          const sheet = workbook.Sheets[name];
+          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "", blankrows: true });
+          const merges = Array.isArray(sheet["!merges"]) ? sheet["!merges"] : [];
+          merges.forEach(range => {
+            const topLeft = ((rows[range.s.r] || [])[range.s.c]) ?? "";
+            for (let r = range.s.r; r <= range.e.r; r++) {
+              if (!rows[r]) rows[r] = [];
+              for (let c = range.s.c; c <= range.e.c; c++) {
+                if (rows[r][c] == null || rows[r][c] === "") rows[r][c] = topLeft;
+              }
+            }
+          });
+          return { name, rows };
+        });
+        self.postMessage({ ok: true, sheets });
+      } catch (error) {
+        self.postMessage({ ok: false, error: error && error.message ? error.message : String(error) });
+      }
+    };
+  `;
+  const url = URL.createObjectURL(new Blob([workerSource], { type: "text/javascript" }));
+  workbookWorker = new Worker(url);
+  URL.revokeObjectURL(url);
+  return workbookWorker;
+}
+
+function parsePayloadAsync(payload, fileType) {
+  const worker = getWorkbookWorker();
+  if (!worker) return Promise.resolve(parseWorkbookToCachedSheets(payload, fileType));
+  return new Promise((resolve, reject) => {
+    const cleanup = () => { worker.onmessage = null; worker.onerror = null; };
+    worker.onmessage = event => {
+      cleanup();
+      if (event.data && event.data.ok) resolve(event.data.sheets || []);
+      else reject(new Error(event.data && event.data.error ? event.data.error : "后台解析失败"));
+    };
+    worker.onerror = event => { cleanup(); reject(new Error(event.message || "后台解析失败")); };
+    worker.postMessage({ payload, fileType });
+  }).catch(() => parseWorkbookToCachedSheets(payload, fileType));
 }
 
 function applyRenderedColumnWidth(index) {
@@ -1417,6 +1635,14 @@ function showOnlyCoreColumns() {
   renderAll();
 }
 
+function setStickyColumnCount(value) {
+  stickyColumnCount = Math.min(MAX_STICKY_COLUMN_COUNT, Math.max(1, Number(value) || 3));
+  const select = document.getElementById("stickyColumnCountSelect");
+  if (select) select.value = String(stickyColumnCount);
+  saveProgress();
+  renderAll();
+}
+
 function toggleFirstColHugeMode() {
   firstColHugeMode = !firstColHugeMode;
   saveProgress();
@@ -1436,9 +1662,9 @@ function applyStudyFocusMode(mode) {
   } else {
     if (studyFocusMode === "all") preFocusVisibleColumns = visibleColumns.slice();
     visibleColumns = headers.map((_, index) => {
-      if (mode === "word") return index === 0;
-      if (mode === "phonetic") return index === 1;
-      if (mode === "meaning") return index === 2;
+      if (mode === "word") return index === getWordColumnIndex();
+      if (mode === "phonetic") return index === getPhoneticColumnIndex();
+      if (mode === "meaning") return index === getMeaningColumnIndex();
       return false;
     });
     studyFocusMode = mode;
@@ -1449,17 +1675,17 @@ function applyStudyFocusMode(mode) {
 }
 
 function showWordFocusMode() {
-  if (!headers[0]) return;
+  if (!headers[getWordColumnIndex()]) return;
   applyStudyFocusMode("word");
 }
 
 function showPhoneticFocusMode() {
-  if (!headers[1]) return;
+  if (!headers[getPhoneticColumnIndex()]) return;
   applyStudyFocusMode("phonetic");
 }
 
 function showMeaningFocusMode() {
-  if (!headers[2]) return;
+  if (!headers[getMeaningColumnIndex()]) return;
   applyStudyFocusMode("meaning");
 }
 
@@ -1471,13 +1697,13 @@ function exitStudyFocusMode() {
 function applySheetPayload(sheetName, nextHeaders, nextRows, resetSheetSelect) {
   currentSheetName = sheetName || "";
   headers = Array.isArray(nextHeaders) ? nextHeaders.slice() : [];
-  origData = Array.isArray(nextRows) ? nextRows.map(row => row.slice()) : [];
-  data = origData.map(row => row.slice());
+  origData = Array.isArray(nextRows) ? nextRows.map(cloneRow) : [];
+  data = origData.map(cloneRow);
   fileHash = quickHash([currentSheetName, ...origData]);
   eliminatedWords = new Set();
   resetViewState();
   clearFilterOptionCache();
-  tryRestore();
+  const restored = tryRestore();
   syncVisibleColumns();
   ensureSelectedColumn();
   applySorting();
@@ -1485,7 +1711,10 @@ function applySheetPayload(sheetName, nextHeaders, nextRows, resetSheetSelect) {
   const sheetSelect = document.getElementById("sheetSelect");
   if (sheetSelect && currentSheetName) sheetSelect.value = currentSheetName;
   document.getElementById("topBtns").style.display = headers.length ? "" : "none";
-  document.getElementById("fileNotice").textContent = currentSheetName ? `已加载工作表：${currentSheetName}` : "";
+  if (!restored) document.getElementById("fileNotice").textContent = currentSheetName ? `已加载工作表：${currentSheetName}` : "";
+  document.getElementById("pageSizeSelect").value = String(pageSize);
+  applyCoverModeUI();
+  updateUndoButton();
   setLoadingState(false, currentSheetName ? `已加载工作表：${currentSheetName}` : "");
   renderAll();
 }
@@ -1540,22 +1769,34 @@ function updateStatBar() {
   const visibleCount = getVisibleIndices().length;
   const total = origData.length;
   const eliminatedCount = eliminatedWords.size;
-  const left = Math.max(total - eliminatedCount, 0);
+  const questionedCount = questionedWords.size;
+  const unprocessedCount = Math.max(total - eliminatedCount - questionedCount, 0);
   const filterCount = columnTextFilters.filter(Boolean).length + columnExactFilters.filter(value => value && value !== FILTER_ALL).length;
   const sortText = headerSort.index >= 0
     ? `表头排序：${headers[headerSort.index]} ${headerSort.direction === "asc" ? "↑" : "↓"}`
     : `顶部排序：${document.getElementById("sortSelect").selectedOptions[0].text}`;
   const searchText = globalSearchText ? ` | 关键词：${globalSearchText}` : "";
   const filterText = filterCount ? ` | 表头筛选：${filterCount} 项` : "";
-  statBar.textContent = `已消灭单词：${eliminatedCount} 个 | 剩余：${left} 个 | 总计：${total} 条 | 当前显示：${visibleCount} 条 | 每页：${pageSize} 条 | ${sortText}${searchText}${filterText}`;
+  statBar.textContent = `叉叉：${eliminatedCount} 条 | 问号：${questionedCount} 条 | 未处理：${unprocessedCount} 条 | 总计：${total} 条 | 当前显示：${visibleCount} 条 | 每页：${pageSize} 条 | ${sortText}${searchText}${filterText}`;
 }
 
 function tryRestore() {
-  const raw = localStorage.getItem(getStorageKey());
-  const obj = raw ? JSON.parse(raw) : null;
-  if (obj && obj.hash === fileHash) {
-    eliminatedWords = new Set(obj.eliminatedWords || []);
-    currentPage = obj.currentPage || 1;
+  let raw = safeStorageGet(getStorageKey());
+  let restoredLegacy = false;
+  if (!raw) {
+    const legacyHash = legacyQuickHash([currentSheetName, ...origData]);
+    raw = safeStorageGet(getStorageKey(legacyHash));
+    restoredLegacy = !!raw;
+  }
+  let obj = null;
+  try { obj = raw ? JSON.parse(raw) : null; } catch { obj = null; }
+  const compatible = obj && (obj.hash === fileHash || restoredLegacy);
+  if (compatible) {
+    eliminatedWords = normalizeImportedStatus(obj.eliminatedWords);
+    questionedWords = normalizeImportedStatus(obj.questionedWords || []);
+    questionedWords.forEach(id => eliminatedWords.delete(id));
+    currentPage = Math.max(1, Number(obj.currentPage) || 1);
+    pageSize = [50, 100, 200, 300].includes(Number(obj.pageSize)) ? Number(obj.pageSize) : 100;
     if (Array.isArray(obj.columnWidths) && obj.columnWidths.length === headers.length) {
       columnWidths = obj.columnWidths.map((value, index) => { const fixed = getColumnFixedWidth(index); return fixed != null ? fixed : Math.max(getColumnMinWidth(index), Number(value) || getColumnMinWidth(index)); });
     }
@@ -1564,23 +1805,38 @@ function tryRestore() {
     }
     firstColHugeMode = obj.firstColHugeMode === true;
     studyFocusMode = typeof obj.studyFocusMode === "string" ? obj.studyFocusMode : "all";
-    document.getElementById("fileNotice").textContent = `已恢复上次进度${currentSheetName ? "：" + currentSheetName : ""}`;
-  } else {
-    firstColHugeMode = false;
-    studyFocusMode = "all";
-    document.getElementById("fileNotice").textContent = currentSheetName ? `已加载工作表：${currentSheetName}` : "";
+    coverMode = ["word", "phonetic", "meaning"].includes(obj.coverMode) ? obj.coverMode : "none";
+    stickyColumnCount = [1, 2, 3, 4, 5].includes(Number(obj.stickyColumnCount)) ? Number(obj.stickyColumnCount) : 3;
+    document.getElementById("fileNotice").textContent = `已恢复 ${eliminatedWords.size + questionedWords.size} 条进度（叉叉 ${eliminatedWords.size}，问号 ${questionedWords.size}）${currentSheetName ? "：" + currentSheetName : ""}`;
+    if (restoredLegacy) saveProgress(true);
+    return true;
   }
+  firstColHugeMode = false;
+  studyFocusMode = "all";
+  coverMode = "none";
+  stickyColumnCount = 3;
+  document.getElementById("fileNotice").textContent = currentSheetName ? `已加载工作表：${currentSheetName}` : "";
+  return false;
 }
 
 function persistProgressNow() {
-  localStorage.setItem(getStorageKey(), JSON.stringify({
+  if (!headers.length) return false;
+  return safeStorageSet(getStorageKey(), JSON.stringify({
+    version: PROGRESS_VERSION,
     hash: fileHash,
+    fileName,
+    sheetName: currentSheetName,
+    updatedAt: new Date().toISOString(),
     eliminatedWords: Array.from(eliminatedWords),
+    questionedWords: Array.from(questionedWords),
     currentPage,
+    pageSize,
     columnWidths,
     visibleColumns,
     firstColHugeMode,
-    studyFocusMode
+    studyFocusMode,
+    coverMode,
+    stickyColumnCount
   }));
 }
 
@@ -1602,51 +1858,74 @@ function saveProgress(immediate = false) {
 function exportProgress() {
   if (!headers.length) return alert("未加载词表");
   const payload = {
+    version: PROGRESS_VERSION,
     hash: fileHash,
+    fileName,
     sheetName: currentSheetName,
+    updatedAt: new Date().toISOString(),
     eliminatedWords: Array.from(eliminatedWords),
+    questionedWords: Array.from(questionedWords),
+    pageSize,
     columnWidths,
     visibleColumns,
     firstColHugeMode,
-    studyFocusMode
+    studyFocusMode,
+    coverMode,
+    stickyColumnCount
   };
-  const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
   const link = document.createElement("a");
   const date = new Date().toISOString().slice(0, 10);
   const baseName = fileName.replace(/\.[^.]+$/, "");
   const sheetSuffix = currentSheetName ? "_" + currentSheetName : "";
   link.download = `${baseName}${sheetSuffix}_进度文档_${date}.json`;
-  link.href = URL.createObjectURL(blob);
+  const url = URL.createObjectURL(blob);
+  link.href = url;
   link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function importProgress() {
   if (!headers.length) return alert("请先加载词表");
   const input = document.createElement("input");
   input.type = "file";
-  input.accept = ".json";
+  input.accept = ".json,application/json";
   input.onchange = () => {
     const file = input.files[0];
     if (!file) return;
+    if (file.size > 5 * 1024 * 1024) return alert("进度文档异常大，已拒绝导入");
     const reader = new FileReader();
     reader.onload = event => {
       try {
         const obj = JSON.parse(event.target.result);
-        if (obj.hash !== fileHash) return alert("进度文档与当前词表不匹配！");
-        eliminatedWords = new Set(obj.eliminatedWords || []);
+        if (!obj || typeof obj !== "object" || !Array.isArray(obj.eliminatedWords) || (obj.questionedWords != null && !Array.isArray(obj.questionedWords))) throw new Error("格式错误");
+        const legacyHash = legacyQuickHash([currentSheetName, ...origData]);
+        if (obj.hash !== fileHash && obj.hash !== legacyHash) return alert("进度文档与当前词表不匹配！");
+        if (obj.sheetName && obj.sheetName !== currentSheetName) return alert("进度文档属于另一个工作表！");
+        eliminatedWords = normalizeImportedStatus(obj.eliminatedWords);
+        questionedWords = normalizeImportedStatus(obj.questionedWords || []);
+        questionedWords.forEach(id => eliminatedWords.delete(id));
         if (Array.isArray(obj.columnWidths) && obj.columnWidths.length === headers.length) {
           columnWidths = obj.columnWidths.map((value, index) => { const fixed = getColumnFixedWidth(index); return fixed != null ? fixed : Math.max(getColumnMinWidth(index), Number(value) || getColumnMinWidth(index)); });
         }
         if (Array.isArray(obj.visibleColumns) && obj.visibleColumns.length === headers.length) {
           visibleColumns = obj.visibleColumns.map(value => value !== false);
         }
+        pageSize = [50, 100, 200, 300].includes(Number(obj.pageSize)) ? Number(obj.pageSize) : pageSize;
         firstColHugeMode = obj.firstColHugeMode === true;
         studyFocusMode = typeof obj.studyFocusMode === "string" ? obj.studyFocusMode : "all";
+        coverMode = ["word", "phonetic", "meaning"].includes(obj.coverMode) ? obj.coverMode : "none";
+        stickyColumnCount = [1, 2, 3, 4, 5].includes(Number(obj.stickyColumnCount)) ? Number(obj.stickyColumnCount) : 3;
+        undoStack = [];
+        document.getElementById("pageSizeSelect").value = String(pageSize);
+        applyCoverModeUI();
+        updateUndoButton();
         ensureSelectedColumn();
-        saveProgress();
+        saveProgress(true);
         renderAll();
-      } catch {
-        alert("进度文档格式错误！");
+        document.getElementById("fileNotice").textContent = `已导入 ${eliminatedWords.size + questionedWords.size} 条进度（叉叉 ${eliminatedWords.size}，问号 ${questionedWords.size}）`;
+      } catch (error) {
+        alert("进度文档格式错误或内容损坏！");
       }
     };
     reader.readAsText(file, "utf-8");
@@ -1664,6 +1943,11 @@ function resetViewState() {
   firstColHugeMode = false;
   studyFocusMode = "all";
   preFocusVisibleColumns = null;
+  pageSize = 100;
+  stickyColumnCount = 3;
+  coverMode = "none";
+  questionedWords = new Set();
+  undoStack = [];
   clearFilterState();
   document.getElementById("toggleHideBtn").textContent = "隐藏已消灭单词";
   document.getElementById("searchBox").value = "";
@@ -1708,15 +1992,13 @@ function loadWorkbook(file, arrayBuffer) {
   renderColumnPanel();
   updateColumnToolBar();
   document.getElementById("fileNotice").textContent = "";
-  setLoadingState(true, `正在解析：${file.name}`, "文件读取完成后会立即载入第一个工作表");
-  requestAnimationFrame(() => {
-    try {
-      workbookSheets = parseWorkbookToCachedSheets(arrayBuffer, "xlsx-array");
-      applyCachedWorkbookSheets();
-    } catch (error) {
-      setLoadingState(false, "");
-      alert(error && error.message ? error.message : "解析工作簿失败");
-    }
+  setLoadingState(true, `正在解析：${file.name}`, "大文件会在后台解析，页面仍可响应");
+  parsePayloadAsync(arrayBuffer, "xlsx-array").then(sheets => {
+    workbookSheets = sheets;
+    applyCachedWorkbookSheets();
+  }).catch(error => {
+    setLoadingState(false, "");
+    alert(error && error.message ? error.message : "解析工作簿失败");
   });
 }
 
@@ -1730,30 +2012,40 @@ function loadCsv(file, text) {
   renderColumnPanel();
   updateColumnToolBar();
   document.getElementById("fileNotice").textContent = "";
-  setLoadingState(true, `正在解析：${file.name}`, "正在读取文本并准备工作表");
-  requestAnimationFrame(() => {
-    try {
-      workbookSheets = parseWorkbookToCachedSheets(text, "csv-text");
-      applyCachedWorkbookSheets();
-    } catch (error) {
-      setLoadingState(false, "");
-      alert(error && error.message ? error.message : "解析文本失败");
-    }
+  setLoadingState(true, `正在解析：${file.name}`, "正在识别文本编码并准备工作表");
+  parsePayloadAsync(text, "csv-text").then(sheets => {
+    workbookSheets = sheets;
+    applyCachedWorkbookSheets();
+  }).catch(error => {
+    setLoadingState(false, "");
+    alert(error && error.message ? error.message : "解析文本失败");
   });
 }
 
 document.getElementById("fileInput").addEventListener("change", event => {
   const file = event.target.files[0];
   if (!file) return;
+  if (!/\.(xlsx?|csv)$/i.test(file.name)) return alert("仅支持 XLSX、XLS 和 CSV 文件");
+  if (typeof XLSX === "undefined") return alert("Excel 解析组件加载失败，请检查网络后刷新页面");
   fileName = file.name;
   setLoadingState(true, `正在读取文件：${file.name}`, "文件读取完成后会自动进入后台解析");
   const reader = new FileReader();
+  reader.onerror = () => { setLoadingState(false, ""); alert("读取文件失败，请重新选择文件"); };
   if (/\.xlsx?$/i.test(file.name)) {
     reader.onload = e => loadWorkbook(file, e.target.result);
     reader.readAsArrayBuffer(file);
   } else {
-    reader.onload = e => loadCsv(file, e.target.result);
-    reader.readAsText(file, "utf-8");
+    reader.onload = e => {
+      const buffer = e.target.result;
+      let text;
+      try { text = new TextDecoder("utf-8", { fatal: true }).decode(buffer); }
+      catch {
+        try { text = new TextDecoder("gb18030").decode(buffer); }
+        catch { text = new TextDecoder("utf-8").decode(buffer); }
+      }
+      loadCsv(file, text.replace(/^\uFEFF/, ""));
+    };
+    reader.readAsArrayBuffer(file);
   }
 });
 
@@ -1762,7 +2054,7 @@ document.getElementById("sheetSelect").addEventListener("change", event => {
 });
 
 function applySorting() {
-  data = origData.map(row => row.slice());
+  data = origData.map(cloneRow);
   const preset = document.getElementById("sortSelect").value;
   const wordIdx = getWordColumnIndex();
   if (headerSort.index >= 0 && headerSort.direction) {
@@ -1873,7 +2165,7 @@ function buildExactOptionsHtml(columnIndex, stateKey) {
   const current = columnExactFilters[columnIndex] || FILTER_ALL;
   const cacheKey = getFilterCacheKey(columnIndex, stateKey);
   const loaded = loadedFilterOptionKeys.has(cacheKey) && filterOptionCache.has(cacheKey);
-  const baseIndices = getVisibleIndices(columnIndex);
+  const baseIndices = loaded ? getVisibleIndices(columnIndex) : [];
   const totalCount = baseIndices.length;
   let blankCount = 0;
   let nonBlankCount = 0;
@@ -1883,9 +2175,9 @@ function buildExactOptionsHtml(columnIndex, stateKey) {
     else nonBlankCount++;
   }
   const options = [
-    { value: FILTER_ALL, label: `全部 (${totalCount})`, disabled: false },
-    { value: FILTER_NONBLANK, label: `非空 (${nonBlankCount})`, disabled: false },
-    { value: FILTER_BLANK, label: `空白 (${blankCount})`, disabled: false }
+    { value: FILTER_ALL, label: loaded ? `全部 (${totalCount})` : "全部", disabled: false },
+    { value: FILTER_NONBLANK, label: loaded ? `非空 (${nonBlankCount})` : "非空", disabled: false },
+    { value: FILTER_BLANK, label: loaded ? `空白 (${blankCount})` : "空白", disabled: false }
   ];
   const presetGroups = getPresetGroupFilters(columnIndex);
   if (presetGroups.length) {
@@ -1974,8 +2266,8 @@ function renderTable() {
   `;
   const headerHtml = visibleColumnIndices.map(idx => {
     const header = headers[idx];
-    const isWordColumn = idx === 0;
-    const isPhoneticColumn = idx === 1;
+    const isWordColumn = idx === getWordColumnIndex();
+    const isPhoneticColumn = idx === getPhoneticColumnIndex();
     const isAsc = headerSort.index === idx && headerSort.direction === "asc";
     const isDesc = headerSort.index === idx && headerSort.direction === "desc";
     const flag = getFilterStatus(idx) ? `<span class="th-flag">筛</span>` : "";
@@ -1993,8 +2285,8 @@ function renderTable() {
         <div class="th-inner">
           <span class="th-label">${escapeHtml(header)} ${flag}</span>
           <span class="th-actions">
-            <button class="sort-btn ${isAsc ? "active" : ""}" onclick="event.stopPropagation(); setHeaderSort(${idx}, 'asc')">↑</button>
-            <button class="sort-btn ${isDesc ? "active" : ""}" onclick="event.stopPropagation(); setHeaderSort(${idx}, 'desc')">↓</button>
+            <button type="button" class="sort-btn ${isAsc ? "active" : ""}" aria-label="按 ${escapeHtml(header)} 升序排序" onclick="event.stopPropagation(); setHeaderSort(${idx}, 'asc')">↑</button>
+            <button type="button" class="sort-btn ${isDesc ? "active" : ""}" aria-label="按 ${escapeHtml(header)} 降序排序" onclick="event.stopPropagation(); setHeaderSort(${idx}, 'desc')">↓</button>
           </span>
         </div>
         <div class="col-resizer" onpointerdown="startResize(${idx}, event)" ondblclick="autoFitColumn(${idx})"></div>
@@ -2002,8 +2294,8 @@ function renderTable() {
     `;
   }).join("");
   const filterHtml = visibleColumnIndices.map(idx => {
-    const isWordColumn = idx === 0;
-    const isPhoneticColumn = idx === 1;
+    const isWordColumn = idx === getWordColumnIndex();
+    const isPhoneticColumn = idx === getPhoneticColumnIndex();
     const selectValue = columnExactFilters[idx] || FILTER_ALL;
     const optionsHtml = buildExactOptionsHtml(idx, filterOptionStateKey);
     const status = getFilterStatus(idx);
@@ -2030,12 +2322,13 @@ function renderTable() {
     const row = data[rowIndex];
     const wordKey = getWordKey(row);
     const eliminatedRow = eliminatedWords.has(wordKey);
-    const rowClass = eliminatedRow ? "eliminated" : "";
+    const questionedRow = questionedWords.has(wordKey);
+    const rowClass = eliminatedRow ? "eliminated" : questionedRow ? "questioned" : "";
     return `
       <tr class="${rowClass}" data-word-key="${escapeHtml(wordKey)}">
         ${visibleColumnIndices.map(idx => {
-          const isWordColumn = idx === 0;
-          const isPhoneticColumn = idx === 1;
+          const isWordColumn = idx === getWordColumnIndex();
+          const isPhoneticColumn = idx === getPhoneticColumnIndex();
           const sticky = stickyConfig.get(idx);
           const stickyClass = sticky ? `sticky-col${sticky.last ? " sticky-divider" : ""}` : "";
           const studyClass = isWordColumn
@@ -2043,10 +2336,17 @@ function renderTable() {
             : isPhoneticColumn
               ? ` study-col-2 second-col-emphasis${firstColHugeMode ? " second-col-huge" : ""}`
               : "";
-          const stickyStyle = sticky ? ` style="left:${sticky.left}px;${eliminatedRow ? "background:#ffb46a;" : ""}"` : "";
-          return `<td class="${idx >= 5 ? "uniform-study-td " : ""}${idx === 6 ? "col-7-purple " : ""}${idx === 7 ? "col-8-light-orange " : ""}${idx === 8 ? "col-9-light-purple " : ""}${stickyClass}${studyClass}"${stickyStyle}>${escapeHtml(row[idx])}</td>`;
+          const stateBackground = eliminatedRow ? "background:#ffb46a;" : questionedRow ? "background:#ffd9d4;" : "";
+          const stickyStyle = sticky ? ` style="left:${sticky.left}px;${stateBackground}"` : "";
+          const roleClass = isWordColumn ? "word-role " : isPhoneticColumn ? "phonetic-role " : idx === getMeaningColumnIndex() ? "meaning-role " : "";
+          return `<td class="${roleClass}${idx >= 5 ? "uniform-study-td " : ""}${idx === 6 ? "col-7-purple " : ""}${idx === 7 ? "col-8-light-orange " : ""}${idx === 8 ? "col-9-light-purple " : ""}${stickyClass}${studyClass}"${stickyStyle}><span class="cell-text">${escapeHtml(row[idx])}</span></td>`;
         }).join("")}
-        <td class="action-cell" onclick="toggleEliminate('${encodeURIComponent(wordKey)}', event)" title="${eliminatedRow ? '恢复这个单词' : '消灭这个单词'}"><button class="eliminate-btn" tabindex="-1" aria-hidden="true">${eliminatedRow ? "↺" : "✕"}</button></td>
+        <td class="action-cell" data-action-row="${escapeHtml(wordKey)}">
+          <div class="action-buttons">
+            <button type="button" class="status-btn eliminate-status-btn${eliminatedRow ? " active" : ""}" data-status="eliminated" aria-label="${eliminatedRow ? '取消叉叉标记' : '标记为叉叉'}">✕</button>
+            <button type="button" class="status-btn question-status-btn${questionedRow ? " active" : ""}" data-status="questioned" aria-label="${questionedRow ? '取消问号标记' : '标记为问号'}">?</button>
+          </div>
+        </td>
       </tr>
     `;
   }).join("");
@@ -2056,36 +2356,13 @@ function renderTable() {
   table.innerHTML = `
     ${colGroupHtml}
     <thead>
-      <tr class="header-row">${headerHtml}<th class="action-header-cell"><div class="th-inner"><span class="th-label">✕</span></div></th></tr>
+      <tr class="header-row">${headerHtml}<th class="action-header-cell"><div class="th-inner"><span class="th-label">✕ / ?</span></div></th></tr>
       <tr class="filter-row">${filterHtml}<th></th></tr>
     </thead>
     <tbody>${emptyHtml}</tbody>
   `;
   renderColumnPanel();
   updateColumnToolBar();
-  updateStatBar();
-}
-
-function applyEliminatedStateToVisibleRows(wordKey, eliminated) {
-  const safeKey = String(wordKey || "").replace(/\\/g, "\\\\").replace(/"/g, '\"');
-  document.querySelectorAll(`tr[data-word-key="${safeKey}"]`).forEach(row => {
-    row.classList.toggle("eliminated", eliminated);
-    row.querySelectorAll('.sticky-col').forEach(cell => {
-      cell.style.background = eliminated ? '#ffb46a' : '';
-    });
-    const actionCell = row.querySelector('.action-cell');
-    if (actionCell) {
-      actionCell.title = eliminated ? '恢复这个单词' : '消灭这个单词';
-      const btn = actionCell.querySelector('.eliminate-btn');
-      if (btn) btn.textContent = eliminated ? '↺' : '✕';
-    }
-  });
-}
-
-function fastToggleEliminate(wordKey) {
-  const eliminated = eliminatedWords.has(wordKey);
-  applyEliminatedStateToVisibleRows(wordKey, eliminated);
-  saveProgress();
   updateStatBar();
 }
 
@@ -2121,17 +2398,103 @@ function gotoPage(page) {
   renderAll();
 }
 
-function toggleEliminate(wordKey, event) {
-  event.stopPropagation();
-  const decoded = decodeURIComponent(wordKey);
-  if (eliminatedWords.has(decoded)) eliminatedWords.delete(decoded);
-  else eliminatedWords.add(decoded);
-  if (hideEliminated) {
-    renderAll();
-    saveProgress();
-    return;
-  }
-  fastToggleEliminate(decoded);
+function updateUndoButton() {
+  const button = document.getElementById("undoBtn");
+  if (!button) return;
+  button.disabled = undoStack.length === 0;
+  button.textContent = undoStack.length ? `撤销上一步 (${undoStack.length})` : "撤销上一步";
+}
+
+function getRowStatus(id) {
+  if (eliminatedWords.has(id)) return "eliminated";
+  if (questionedWords.has(id)) return "questioned";
+  return "unprocessed";
+}
+
+function setRowStatus(id, status) {
+  eliminatedWords.delete(id);
+  questionedWords.delete(id);
+  if (status === "eliminated") eliminatedWords.add(id);
+  if (status === "questioned") questionedWords.add(id);
+}
+
+function pushUndo(changes) {
+  if (!changes.length) return;
+  undoStack.push(changes);
+  if (undoStack.length > 30) undoStack.shift();
+  updateUndoButton();
+}
+
+function undoLastAction() {
+  const changes = undoStack.pop();
+  if (!changes) return;
+  changes.forEach(change => setRowStatus(change.id, change.previousStatus));
+  updateUndoButton();
+  saveProgress();
+  renderAll();
+}
+
+function toggleRowStatus(rowId, nextStatus, event) {
+  if (event) event.stopPropagation();
+  const previousStatus = getRowStatus(rowId);
+  pushUndo([{ id: rowId, previousStatus }]);
+  setRowStatus(rowId, previousStatus === nextStatus ? "unprocessed" : nextStatus);
+  currentPage = Math.max(currentPage, 1);
+  saveProgress();
+  renderAll();
+}
+
+function getFilteredRowIds() {
+  const ids = [];
+  data.forEach(row => {
+    if (passesSearch(row) && passesColumnFilters(row)) ids.push(getWordKey(row));
+  });
+  return ids;
+}
+
+function batchSetVisible(eliminated) {
+  if (!headers.length) return;
+  const targetStatus = eliminated ? "eliminated" : "unprocessed";
+  const ids = getFilteredRowIds();
+  const changes = ids.filter(id => getRowStatus(id) !== targetStatus).map(id => ({ id, previousStatus: getRowStatus(id) }));
+  if (!changes.length) return alert(eliminated ? "当前筛选结果已全部标记叉叉" : "当前筛选结果已全部恢复为未处理");
+  const actionText = eliminated ? "标记叉叉" : "恢复为未处理";
+  if (!confirm(`确定要将当前筛选的 ${changes.length} 条记录全部${actionText}吗？`)) return;
+  pushUndo(changes);
+  changes.forEach(change => setRowStatus(change.id, targetStatus));
+  currentPage = 1;
+  saveProgress();
+  renderAll();
+}
+
+function applyCoverModeUI() {
+  document.body.classList.toggle("cover-word", coverMode === "word");
+  document.body.classList.toggle("cover-phonetic", coverMode === "phonetic");
+  document.body.classList.toggle("cover-meaning", coverMode === "meaning");
+  const wordBtn = document.getElementById("coverWordBtn");
+  const phoneticBtn = document.getElementById("coverPhoneticBtn");
+  const meaningBtn = document.getElementById("coverMeaningBtn");
+  if (wordBtn) wordBtn.classList.toggle("active", coverMode === "word");
+  if (phoneticBtn) phoneticBtn.classList.toggle("active", coverMode === "phonetic");
+  if (meaningBtn) meaningBtn.classList.toggle("active", coverMode === "meaning");
+  if (wordBtn) wordBtn.textContent = coverMode === "word" ? "显示全部单词" : "遮住单词";
+  if (phoneticBtn) phoneticBtn.textContent = coverMode === "phonetic" ? "显示全部音标" : "遮住音标";
+  if (meaningBtn) meaningBtn.textContent = coverMode === "meaning" ? "显示全部释义" : "遮住释义";
+}
+
+function toggleCoverMode(mode) {
+  coverMode = coverMode === mode ? "none" : mode;
+  applyCoverModeUI();
+  saveProgress();
+  renderTable();
+}
+
+function setPageSize(value) {
+  const next = Number(value);
+  pageSize = [50, 100, 200, 300].includes(next) ? next : 100;
+  currentPage = 1;
+  saveProgress();
+  renderAll();
 }
 
 function toggleHideEliminated() {
@@ -2163,7 +2526,8 @@ function clearHeaderSort() {
 function setColumnTextFilter(index, value) {
   columnTextFilters[index] = value;
   currentPage = 1;
-  renderAll();
+  clearTimeout(filterInputTimer);
+  filterInputTimer = setTimeout(() => renderAll(), 220);
 }
 
 function setColumnExactFilter(index, value) {
@@ -2201,20 +2565,26 @@ function escapeCSV(value) {
 
 function exportCSV(type) {
   if (!headers.length) return;
-  const rows = [headers.map(escapeCSV).join(",")];
+  const statusLabel = id => getRowStatus(id) === "eliminated" ? "叉叉" : getRowStatus(id) === "questioned" ? "问号" : "未处理";
+  const rows = [[...headers, "处理状态"].map(escapeCSV).join(",")];
   origData.forEach(row => {
-    const key = getWordKey(row);
-    if (type === "eliminated" && eliminatedWords.has(key)) rows.push(row.map(escapeCSV).join(","));
-    if (type === "remaining" && !eliminatedWords.has(key)) rows.push(row.map(escapeCSV).join(","));
+    const id = getWordKey(row);
+    const status = getRowStatus(id);
+    if (type === "unprocessed" && status !== "unprocessed") return;
+    if (type === "questioned" && status !== "questioned") return;
+    rows.push([...row, statusLabel(id)].map(escapeCSV).join(","));
   });
-  const blob = new Blob([rows.join("\r\n")], { type: "text/csv" });
+  const blob = new Blob(["\uFEFF", rows.join("\r\n")], { type: "text/csv;charset=utf-8" });
   const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = `${type === "eliminated" ? "已消灭单词" : "剩余单词"}${currentSheetName ? "_" + currentSheetName : ""}.csv`;
+  const url = URL.createObjectURL(blob);
+  link.href = url;
+  const fileLabel = type === "all" ? "总进度" : type === "unprocessed" ? "未知单词" : "问号单词";
+  link.download = `${fileLabel}${currentSheetName ? "_" + currentSheetName : ""}.csv`;
   link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function resetAll() {
+function resetView() {
   if (!headers.length) return;
   hideEliminated = false;
   globalSearchText = "";
@@ -2224,6 +2594,8 @@ function resetAll() {
   studyFocusMode = "all";
   preFocusVisibleColumns = null;
   columnPanelVisible = false;
+  coverMode = "none";
+  stickyColumnCount = 3;
   clearFilterState();
   clearFilterOptionCache();
   syncColumnWidths(true);
@@ -2232,7 +2604,23 @@ function resetAll() {
   document.getElementById("toggleHideBtn").textContent = "隐藏已消灭单词";
   document.getElementById("searchBox").value = "";
   document.getElementById("sortSelect").value = "origin";
+  applyCoverModeUI();
+  saveProgress();
   renderAll();
+}
+
+function clearLearningProgress() {
+  const progressCount = eliminatedWords.size + questionedWords.size;
+  if (!headers.length || !progressCount) return alert("当前没有需要清空的学习进度");
+  if (!confirm(`确定清空当前工作表的 ${progressCount} 条学习进度吗？此操作不可撤销。`)) return;
+  eliminatedWords.clear();
+  questionedWords.clear();
+  undoStack = [];
+  updateUndoButton();
+  safeStorageRemove(getStorageKey());
+  currentPage = 1;
+  renderAll();
+  document.getElementById("fileNotice").textContent = "学习进度已清空";
 }
 
 document.getElementById("sortSelect").addEventListener("change", function() {
@@ -2274,6 +2662,20 @@ function updateSlider() {
   };
 }
 
+document.getElementById("wordTable").addEventListener("click", event => {
+  const statusButton = event.target.closest(".status-btn");
+  const actionCell = event.target.closest(".action-cell");
+  if (statusButton && actionCell && actionCell.dataset.actionRow) {
+    toggleRowStatus(actionCell.dataset.actionRow, statusButton.dataset.status, event);
+    return;
+  }
+  const coverCell = event.target.closest("td.word-role, td.phonetic-role, td.meaning-role");
+  if (!coverCell) return;
+  const canReveal = (coverMode === "word" && coverCell.classList.contains("word-role")) ||
+    (coverMode === "phonetic" && coverCell.classList.contains("phonetic-role")) ||
+    (coverMode === "meaning" && coverCell.classList.contains("meaning-role"));
+  if (canReveal) coverCell.classList.toggle("revealed");
+});
 window.addEventListener("beforeunload", () => saveProgress(true));
 document.addEventListener("pointerdown", maybeCloseColumnPanel, { passive: true });
 window.onresize = () => setTimeout(updateSlider, 200);
