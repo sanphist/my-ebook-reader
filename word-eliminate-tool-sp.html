@@ -824,7 +824,7 @@
     <div id="columnToolBar">
       <span id="selectedColumnLabel"></span>
       <button class="tool-btn" onclick="adjustSelectedColumnWidth(-40)">窄一点</button>
-      <button class="tool-btn" onclick="setSelectedColumnNarrowest()">最窄 30px</button>
+      <button class="tool-btn" id="narrowestColumnBtn" onclick="setSelectedColumnNarrowest()">最窄 30px</button>
       <button class="tool-btn" onclick="adjustSelectedColumnWidth(40)">宽一点</button>
       <button class="tool-btn" onclick="autoFitSelectedColumn()">自动列宽</button>
       <button class="tool-btn" id="toggleFirstColHugeBtn" onclick="toggleFirstColHugeMode()">首列超大</button>
@@ -918,13 +918,14 @@ const FILTER_NONBLANK = "__NONBLANK__";
 const MIN_COLUMN_WIDTH = 96;
 const FIT_MIN_COLUMN_WIDTH = 68;
 const MANUAL_NARROW_COLUMN_WIDTH = 30;
+const P_COLUMN_MIN_WIDTH = 20;
 
 function isPHeaderColumn(index) {
   return /^p/i.test(normalizeCell(headers[index]));
 }
 
 function getColumnMinWidth(index) {
-  if (isPHeaderColumn(index)) return MANUAL_NARROW_COLUMN_WIDTH;
+  if (isPHeaderColumn(index)) return P_COLUMN_MIN_WIDTH;
   if (index >= 5 && index <= 12) return 16;
   if (index === 1) return 36;
   if (index === 2) return 56;
@@ -1230,7 +1231,7 @@ function estimateColumnWidth(index) {
     maxLength = Math.max(maxLength, normalizeCell(row[index]).length);
   }
   const baseWidth = Math.min(560, Math.max(MIN_COLUMN_WIDTH, maxLength * 18 + 36));
-  if (isPHeaderColumn(index)) return MANUAL_NARROW_COLUMN_WIDTH;
+  if (isPHeaderColumn(index)) return P_COLUMN_MIN_WIDTH;
   if (index === 0 || index === 1) return FIXED_CORE_COLUMN_WIDTH;
   if (index === 2) return THIRD_STICKY_COLUMN_WIDTH;
   if (index === 4) return baseWidth + 24;
@@ -1320,6 +1321,7 @@ function updateColumnToolBar() {
   const toolBar = document.getElementById("columnToolBar");
   const label = document.getElementById("selectedColumnLabel");
   const hugeBtn = document.getElementById("toggleFirstColHugeBtn");
+  const narrowestBtn = document.getElementById("narrowestColumnBtn");
   const exitFocusBtn = document.getElementById("exitFocusBtn");
   if (!headers.length || !columnPanelVisible || selectedColumnIndex < 0 || visibleColumns[selectedColumnIndex] === false) {
     toolBar.style.display = "none";
@@ -1331,6 +1333,7 @@ function updateColumnToolBar() {
   toolBar.style.display = "flex";
   label.textContent = `当前列：${headers[selectedColumnIndex]}`;
   hugeBtn.textContent = firstColHugeMode ? "首列标准" : "首列超大";
+  if (narrowestBtn) narrowestBtn.textContent = isPHeaderColumn(selectedColumnIndex) ? "最窄 20px" : "最窄 30px";
   exitFocusBtn.style.display = studyFocusMode === "all" ? "none" : "";
 }
 
@@ -1457,6 +1460,35 @@ function getWorkbookWorker() {
   if (workbookWorker) return workbookWorker;
   if (typeof Worker === "undefined") return null;
   const workerSource = `
+    function normalizeWorkerCell(value) {
+      if (value == null) return "";
+      return String(value).trim();
+    }
+
+    function getWorkerCellDisplayValue(sheet, rowIndex, colIndex) {
+      const address = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+      const cell = sheet[address];
+      if (!cell) return "";
+      if (cell.w != null && cell.w !== "") return normalizeWorkerCell(cell.w);
+      if (cell.v == null) return "";
+      return normalizeWorkerCell(cell.v);
+    }
+
+    function workerSheetToGrid(sheet) {
+      const ref = sheet && sheet["!ref"];
+      if (!ref) return [];
+      const range = XLSX.utils.decode_range(ref);
+      const rows = new Array(range.e.r - range.s.r + 1);
+      for (let r = range.s.r; r <= range.e.r; r++) {
+        const row = new Array(range.e.c - range.s.c + 1);
+        for (let c = range.s.c; c <= range.e.c; c++) {
+          row[c - range.s.c] = getWorkerCellDisplayValue(sheet, r, c);
+        }
+        rows[r - range.s.r] = row;
+      }
+      return rows;
+    }
+
     self.onmessage = event => {
       try {
         importScripts("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
@@ -1464,7 +1496,7 @@ function getWorkbookWorker() {
         const workbook = XLSX.read(event.data.payload, { type, cellText: true, cellFormula: true, cellDates: true });
         const sheets = workbook.SheetNames.map(name => {
           const sheet = workbook.Sheets[name];
-          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "", blankrows: true });
+          const rows = workerSheetToGrid(sheet);
           const merges = Array.isArray(sheet["!merges"]) ? sheet["!merges"] : [];
           merges.forEach(range => {
             const topLeft = ((rows[range.s.r] || [])[range.s.c]) ?? "";
@@ -1641,7 +1673,7 @@ function setSelectedColumnNarrowest() {
   if (selectedColumnIndex < 0) return;
   syncColumnWidths();
   const fixed = getColumnFixedWidth(selectedColumnIndex);
-  columnWidths[selectedColumnIndex] = fixed != null ? fixed : MANUAL_NARROW_COLUMN_WIDTH;
+  columnWidths[selectedColumnIndex] = fixed != null ? fixed : (isPHeaderColumn(selectedColumnIndex) ? P_COLUMN_MIN_WIDTH : MANUAL_NARROW_COLUMN_WIDTH);
   saveProgress();
   renderTable();
   renderPagination();
@@ -1873,7 +1905,7 @@ function tryRestore() {
     currentPage = Math.max(1, Number(obj.currentPage) || 1);
     pageSize = [50, 100, 200, 300].includes(Number(obj.pageSize)) ? Number(obj.pageSize) : 100;
     if (Array.isArray(obj.columnWidths) && obj.columnWidths.length === headers.length) {
-      columnWidths = obj.columnWidths.map((value, index) => { const fixed = getColumnFixedWidth(index); return fixed != null ? fixed : Math.max(MANUAL_NARROW_COLUMN_WIDTH, Number(value) || getColumnMinWidth(index)); });
+      columnWidths = obj.columnWidths.map((value, index) => { const fixed = getColumnFixedWidth(index); return fixed != null ? fixed : Math.max(isPHeaderColumn(index) ? P_COLUMN_MIN_WIDTH : MANUAL_NARROW_COLUMN_WIDTH, Number(value) || getColumnMinWidth(index)); });
     }
     if (Array.isArray(obj.visibleColumns) && obj.visibleColumns.length === headers.length) {
       visibleColumns = obj.visibleColumns.map(value => value !== false);
@@ -1981,7 +2013,7 @@ function importProgress() {
         questionedWords = normalizeImportedStatus(obj.questionedWords || []);
         questionedWords.forEach(id => eliminatedWords.delete(id));
         if (Array.isArray(obj.columnWidths) && obj.columnWidths.length === headers.length) {
-          columnWidths = obj.columnWidths.map((value, index) => { const fixed = getColumnFixedWidth(index); return fixed != null ? fixed : Math.max(MANUAL_NARROW_COLUMN_WIDTH, Number(value) || getColumnMinWidth(index)); });
+          columnWidths = obj.columnWidths.map((value, index) => { const fixed = getColumnFixedWidth(index); return fixed != null ? fixed : Math.max(isPHeaderColumn(index) ? P_COLUMN_MIN_WIDTH : MANUAL_NARROW_COLUMN_WIDTH, Number(value) || getColumnMinWidth(index)); });
         }
         if (Array.isArray(obj.visibleColumns) && obj.visibleColumns.length === headers.length) {
           visibleColumns = obj.visibleColumns.map(value => value !== false);
