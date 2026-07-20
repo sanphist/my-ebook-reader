@@ -841,9 +841,7 @@
           <button class="tool-btn" onclick="showOnlyCoreColumns()">仅前三列</button>
           <label class="sticky-count-control">锁定
             <select id="stickyColumnCountSelect" onchange="setStickyColumnCount(this.value)" aria-label="选择锁定前几列">
-              <option value="1">前1列</option>
-              <option value="2">前2列</option>
-              <option value="3" selected>前3列</option>
+              <option value="3" selected>前3列（永久）</option>
               <option value="4">前4列</option>
               <option value="5">前5列</option>
             </select>
@@ -913,9 +911,9 @@ let coverMode = "none";
 let stickyColumnCount = 3;
 let filterInputTimer = null;
 let lastStorageError = "";
-const PROGRESS_VERSION = 4;
+const PROGRESS_VERSION = 5;
 const P_COLUMN_WIDTH_PROGRESS_VERSION = 3;
-const STICKY_COLUMN_PROGRESS_VERSION = 4;
+const STICKY_COLUMN_PROGRESS_VERSION = 5;
 const STORAGE_PREFIX = "eliminate_words_progress_kk_";
 const FILTER_ALL = "__ALL__";
 const FILTER_BLANK = "__BLANK__";
@@ -932,14 +930,13 @@ function isPHeaderColumn(index) {
 function getColumnMinWidth(index) {
   if (isPHeaderColumn(index)) return P_COLUMN_MIN_WIDTH;
   if (index >= 5 && index <= 12) return 16;
+  if (index === 0) return 48;
   if (index === 1) return 36;
   if (index === 2) return 56;
   return MIN_COLUMN_WIDTH;
 }
 
 function getColumnFixedWidth(index) {
-  if (index === 0 || index === 1) return FIXED_CORE_COLUMN_WIDTH;
-  if (index === 2) return THIRD_STICKY_COLUMN_WIDTH;
   if (isPHeaderColumn(index)) return null;
   if (index >= 5 && index <= 12) return 16;
   return null;
@@ -1258,6 +1255,10 @@ function syncColumnWidths(forceReset = false) {
   }
 }
 
+function getEffectiveStickyColumnCount() {
+  return Math.max(3, Math.min(MAX_STICKY_COLUMN_COUNT, Number(stickyColumnCount) || 3));
+}
+
 function fitColumnWidthsToViewport() {
   if (!headers.length) return;
   const wrap = document.getElementById("wordTable")?.parentElement;
@@ -1265,7 +1266,7 @@ function fitColumnWidthsToViewport() {
   if (!wrap || !visibleIndices.length) return;
   const availableWidth = Math.max(wrap.clientWidth - ACTION_COLUMN_WIDTH - 12, 0);
   if (!availableWidth) return;
-  const lockedIndices = new Set(visibleIndices.slice(0, stickyColumnCount));
+  const lockedIndices = new Set(visibleIndices.slice(0, getEffectiveStickyColumnCount()));
   const preservedIndices = visibleIndices.filter(index => getColumnFixedWidth(index) != null || isPHeaderColumn(index) || lockedIndices.has(index));
   const flexIndices = visibleIndices.filter(index => getColumnFixedWidth(index) == null && !isPHeaderColumn(index) && !lockedIndices.has(index));
   let usedWidth = 0;
@@ -1318,7 +1319,7 @@ function ensureSelectedColumn() {
 function getStickyConfig(visibleIndices) {
   const stickyMap = new Map();
   let left = 0;
-  const lockedIndices = visibleIndices.slice(0, stickyColumnCount);
+  const lockedIndices = visibleIndices.slice(0, getEffectiveStickyColumnCount());
   lockedIndices.forEach((columnIndex, order) => {
     stickyMap.set(columnIndex, { left, last: order === lockedIndices.length - 1 });
     left += columnWidths[columnIndex];
@@ -1757,7 +1758,7 @@ function showOnlyCoreColumns() {
 }
 
 function setStickyColumnCount(value) {
-  stickyColumnCount = Math.min(MAX_STICKY_COLUMN_COUNT, Math.max(1, Number(value) || 3));
+  stickyColumnCount = Math.min(MAX_STICKY_COLUMN_COUNT, Math.max(3, Number(value) || 3));
   const select = document.getElementById("stickyColumnCountSelect");
   if (select) select.value = String(stickyColumnCount);
   saveProgress();
@@ -1934,7 +1935,7 @@ function tryRestore() {
     firstColHugeMode = obj.firstColHugeMode === true;
     studyFocusMode = typeof obj.studyFocusMode === "string" ? obj.studyFocusMode : "all";
     coverMode = ["word", "phonetic", "meaning"].includes(obj.coverMode) ? obj.coverMode : "none";
-    stickyColumnCount = migrateStickyColumns ? 3 : ([1, 2, 3, 4, 5].includes(Number(obj.stickyColumnCount)) ? Number(obj.stickyColumnCount) : 3);
+    stickyColumnCount = migrateStickyColumns ? 3 : ([3, 4, 5].includes(Number(obj.stickyColumnCount)) ? Number(obj.stickyColumnCount) : 3);
     document.getElementById("fileNotice").textContent = `已恢复 ${eliminatedWords.size + questionedWords.size} 条进度（叉叉 ${eliminatedWords.size}，问号 ${questionedWords.size}）${currentSheetName ? "：" + currentSheetName : ""}`;
     if (restoredLegacy || migratePColumnWidths || migrateStickyColumns) saveProgress(true);
     return true;
@@ -2049,7 +2050,7 @@ function importProgress() {
         firstColHugeMode = obj.firstColHugeMode === true;
         studyFocusMode = typeof obj.studyFocusMode === "string" ? obj.studyFocusMode : "all";
         coverMode = ["word", "phonetic", "meaning"].includes(obj.coverMode) ? obj.coverMode : "none";
-        stickyColumnCount = Number(obj.version || 0) < STICKY_COLUMN_PROGRESS_VERSION ? 3 : ([1, 2, 3, 4, 5].includes(Number(obj.stickyColumnCount)) ? Number(obj.stickyColumnCount) : 3);
+        stickyColumnCount = Number(obj.version || 0) < STICKY_COLUMN_PROGRESS_VERSION ? 3 : ([3, 4, 5].includes(Number(obj.stickyColumnCount)) ? Number(obj.stickyColumnCount) : 3);
         undoStack = [];
         document.getElementById("pageSizeSelect").value = String(pageSize);
         applyCoverModeUI();
