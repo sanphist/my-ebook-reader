@@ -795,7 +795,7 @@
 </head>
 <body>
 <div class="page">
-  <h2>CocaCrush口渴单词消消乐 <span id="buildBadge">安卓固定前三列版 2026-07-21</span></h2>
+  <h2>CocaCrush口渴单词消消乐 <span id="buildBadge">安卓固定前三列·大表完整读取版 2026-07-21</span></h2>
   <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
   <span id="fileNotice"></span>
   <div id="progressPanel">
@@ -1099,7 +1099,11 @@ function prepareRows(rows) {
   const safeRows = Array.isArray(rows) ? rows.filter(row => Array.isArray(row)) : [];
   const width = safeRows.reduce((max, row) => Math.max(max, row.length), 0);
   if (!width || !safeRows.length) return { headers: [], rows: [] };
-  const normalizedRows = safeRows.map(row => Array.from({ length: width }, (_, idx) => normalizeCell(row[idx])));
+  const normalizedRows = safeRows;
+  normalizedRows.forEach(row => {
+    row.length = width;
+    for (let idx = 0; idx < width; idx++) row[idx] = normalizeCell(row[idx]);
+  });
   const headerRow = normalizedRows[0].map((value, idx) => value || `列${idx + 1}`);
   const bodyRows = normalizedRows.slice(1).map((row, index) => {
     row._rowId = `row:${index + 2}`;
@@ -1419,7 +1423,8 @@ function setLoadingState(loading, text = "") {
 
 function getSheetCellDisplayValue(sheet, rowIndex, colIndex) {
   const address = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
-  const cell = sheet[address];
+  const denseRows = Array.isArray(sheet) ? sheet : (Array.isArray(sheet && sheet["!data"]) ? sheet["!data"] : null);
+  const cell = (denseRows && denseRows[rowIndex] && denseRows[rowIndex][colIndex]) || sheet[address];
   if (!cell) return "";
   if (cell.w != null && cell.w !== "") return normalizeCell(cell.w);
   if (cell.v == null) return "";
@@ -1443,6 +1448,7 @@ function sheetToGrid(sheet) {
 
 function expandMergedCells(sheet, rows) {
   const merges = Array.isArray(sheet && sheet["!merges"]) ? sheet["!merges"] : [];
+  if (!merges.length) return rows;
   const cloned = rows.map(row => Array.isArray(row) ? row.slice() : []);
   merges.forEach(range => {
     if (!range || !range.s || !range.e) return;
@@ -1466,7 +1472,8 @@ function parseWorkbookToCachedSheets(payload, fileType) {
     type: fileType === "csv-text" ? "string" : "array",
     cellText: true,
     cellFormula: true,
-    cellDates: true
+    cellDates: true,
+    dense: true
   });
   return workbook.SheetNames.map(name => {
     const sheet = workbook.Sheets[name];
@@ -1496,7 +1503,8 @@ function getWorkbookWorker() {
 
     function getWorkerCellDisplayValue(sheet, rowIndex, colIndex) {
       const address = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
-      const cell = sheet[address];
+      const denseRows = Array.isArray(sheet) ? sheet : (Array.isArray(sheet && sheet["!data"]) ? sheet["!data"] : null);
+      const cell = (denseRows && denseRows[rowIndex] && denseRows[rowIndex][colIndex]) || sheet[address];
       if (!cell) return "";
       if (cell.w != null && cell.w !== "") return normalizeWorkerCell(cell.w);
       if (cell.v == null) return "";
@@ -1522,7 +1530,7 @@ function getWorkbookWorker() {
       try {
         importScripts("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
         const type = event.data.fileType === "csv-text" ? "string" : "array";
-        const workbook = XLSX.read(event.data.payload, { type, cellText: true, cellFormula: true, cellDates: true });
+        const workbook = XLSX.read(event.data.payload, { type, cellText: true, cellFormula: true, cellDates: true, dense: true });
         const sheets = workbook.SheetNames.map(name => {
           const sheet = workbook.Sheets[name];
           const rows = workerSheetToGrid(sheet);
@@ -1554,7 +1562,12 @@ function parsePayloadAsync(payload, fileType) {
   const worker = getWorkbookWorker();
   if (!worker) return Promise.resolve(parseWorkbookToCachedSheets(payload, fileType));
   return new Promise((resolve, reject) => {
-    const cleanup = () => { worker.onmessage = null; worker.onerror = null; };
+    const cleanup = () => {
+      worker.onmessage = null;
+      worker.onerror = null;
+      worker.terminate();
+      if (workbookWorker === worker) workbookWorker = null;
+    };
     worker.onmessage = event => {
       cleanup();
       if (event.data && event.data.ok) resolve(event.data.sheets || []);
@@ -1837,8 +1850,8 @@ function exitStudyFocusMode() {
 function applySheetPayload(sheetName, nextHeaders, nextRows, resetSheetSelect) {
   currentSheetName = sheetName || "";
   headers = Array.isArray(nextHeaders) ? nextHeaders.slice() : [];
-  origData = Array.isArray(nextRows) ? nextRows.map(cloneRow) : [];
-  data = origData.map(cloneRow);
+  origData = Array.isArray(nextRows) ? nextRows : [];
+  data = origData.slice();
   fileHash = quickHash([currentSheetName, ...origData]);
   eliminatedWords = new Set();
   resetViewState();
@@ -2207,7 +2220,7 @@ document.getElementById("sheetSelect").addEventListener("change", event => {
 });
 
 function applySorting() {
-  data = origData.map(cloneRow);
+  data = origData.slice();
   const preset = document.getElementById("sortSelect").value;
   const wordIdx = getWordColumnIndex();
   if (headerSort.index >= 0 && headerSort.direction) {
