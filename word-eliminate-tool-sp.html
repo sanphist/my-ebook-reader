@@ -910,7 +910,8 @@ let coverMode = "none";
 let stickyColumnCount = 3;
 let filterInputTimer = null;
 let lastStorageError = "";
-const PROGRESS_VERSION = 2;
+const PROGRESS_VERSION = 3;
+const P_COLUMN_WIDTH_PROGRESS_VERSION = 3;
 const STORAGE_PREFIX = "eliminate_words_progress_kk_";
 const FILTER_ALL = "__ALL__";
 const FILTER_BLANK = "__BLANK__";
@@ -1258,13 +1259,14 @@ function fitColumnWidthsToViewport() {
   if (!wrap || !visibleIndices.length) return;
   const availableWidth = Math.max(wrap.clientWidth - ACTION_COLUMN_WIDTH - 12, 0);
   if (!availableWidth) return;
-  const fixedIndices = visibleIndices.filter(index => getColumnFixedWidth(index) != null);
-  const flexIndices = visibleIndices.filter(index => getColumnFixedWidth(index) == null);
+  const preservedIndices = visibleIndices.filter(index => getColumnFixedWidth(index) != null || isPHeaderColumn(index));
+  const flexIndices = visibleIndices.filter(index => getColumnFixedWidth(index) == null && !isPHeaderColumn(index));
   let usedWidth = 0;
-  fixedIndices.forEach(index => {
+  preservedIndices.forEach(index => {
     const fixed = getColumnFixedWidth(index);
-    columnWidths[index] = fixed;
-    usedWidth += fixed;
+    const width = fixed != null ? fixed : Math.max(P_COLUMN_MIN_WIDTH, columnWidths[index] || P_COLUMN_MIN_WIDTH);
+    columnWidths[index] = width;
+    usedWidth += width;
   });
   if (!flexIndices.length) return;
   const remainingWidth = Math.max(availableWidth - usedWidth, 0);
@@ -1623,11 +1625,14 @@ function resizeColumnsFromGesture(deltaX) {
   }
   const nextWidths = activeResize.startWidths.slice();
   if (scaledDelta >= 0) {
-    nextWidths[activeResize.index] = Math.max(MIN_COLUMN_WIDTH, activeResize.startWidth + scaledDelta);
+    const fixed = getColumnFixedWidth(activeResize.index);
+    const minWidth = fixed != null ? fixed : getColumnMinWidth(activeResize.index);
+    nextWidths[activeResize.index] = Math.max(minWidth, activeResize.startWidth + scaledDelta);
   } else {
     let remainingShrink = Math.abs(scaledDelta);
     for (const index of activeResize.targetIndices) {
-      const minWidth = getColumnFixedWidth(index) != null ? getColumnFixedWidth(index) : FIT_MIN_COLUMN_WIDTH;
+      const fixed = getColumnFixedWidth(index);
+      const minWidth = fixed != null ? fixed : (isPHeaderColumn(index) ? P_COLUMN_MIN_WIDTH : FIT_MIN_COLUMN_WIDTH);
       const available = Math.max(0, nextWidths[index] - minWidth);
       if (!available) continue;
       const consumed = Math.min(available, remainingShrink);
@@ -1638,7 +1643,8 @@ function resizeColumnsFromGesture(deltaX) {
   }
   activeResize.targetIndices.forEach(index => {
     const fixed = getColumnFixedWidth(index);
-    columnWidths[index] = fixed != null ? fixed : Math.max(FIT_MIN_COLUMN_WIDTH, nextWidths[index]);
+    const minWidth = isPHeaderColumn(index) ? P_COLUMN_MIN_WIDTH : FIT_MIN_COLUMN_WIDTH;
+    columnWidths[index] = fixed != null ? fixed : Math.max(minWidth, nextWidths[index]);
   });
   applyRenderedColumnWidths(activeResize.targetIndices);
 }
@@ -1899,13 +1905,19 @@ function tryRestore() {
   try { obj = raw ? JSON.parse(raw) : null; } catch { obj = null; }
   const compatible = obj && (obj.hash === fileHash || restoredLegacy);
   if (compatible) {
+    const migratePColumnWidths = Number(obj.version || 0) < P_COLUMN_WIDTH_PROGRESS_VERSION;
     eliminatedWords = normalizeImportedStatus(obj.eliminatedWords);
     questionedWords = normalizeImportedStatus(obj.questionedWords || []);
     questionedWords.forEach(id => eliminatedWords.delete(id));
     currentPage = Math.max(1, Number(obj.currentPage) || 1);
     pageSize = [50, 100, 200, 300].includes(Number(obj.pageSize)) ? Number(obj.pageSize) : 100;
     if (Array.isArray(obj.columnWidths) && obj.columnWidths.length === headers.length) {
-      columnWidths = obj.columnWidths.map((value, index) => { const fixed = getColumnFixedWidth(index); return fixed != null ? fixed : Math.max(isPHeaderColumn(index) ? P_COLUMN_MIN_WIDTH : MANUAL_NARROW_COLUMN_WIDTH, Number(value) || getColumnMinWidth(index)); });
+      columnWidths = obj.columnWidths.map((value, index) => {
+        const fixed = getColumnFixedWidth(index);
+        if (fixed != null) return fixed;
+        if (isPHeaderColumn(index) && migratePColumnWidths) return P_COLUMN_MIN_WIDTH;
+        return Math.max(isPHeaderColumn(index) ? P_COLUMN_MIN_WIDTH : MANUAL_NARROW_COLUMN_WIDTH, Number(value) || getColumnMinWidth(index));
+      });
     }
     if (Array.isArray(obj.visibleColumns) && obj.visibleColumns.length === headers.length) {
       visibleColumns = obj.visibleColumns.map(value => value !== false);
@@ -1915,7 +1927,7 @@ function tryRestore() {
     coverMode = ["word", "phonetic", "meaning"].includes(obj.coverMode) ? obj.coverMode : "none";
     stickyColumnCount = [1, 2, 3, 4, 5].includes(Number(obj.stickyColumnCount)) ? Number(obj.stickyColumnCount) : 3;
     document.getElementById("fileNotice").textContent = `已恢复 ${eliminatedWords.size + questionedWords.size} 条进度（叉叉 ${eliminatedWords.size}，问号 ${questionedWords.size}）${currentSheetName ? "：" + currentSheetName : ""}`;
-    if (restoredLegacy) saveProgress(true);
+    if (restoredLegacy || migratePColumnWidths) saveProgress(true);
     return true;
   }
   firstColHugeMode = false;
@@ -2013,7 +2025,13 @@ function importProgress() {
         questionedWords = normalizeImportedStatus(obj.questionedWords || []);
         questionedWords.forEach(id => eliminatedWords.delete(id));
         if (Array.isArray(obj.columnWidths) && obj.columnWidths.length === headers.length) {
-          columnWidths = obj.columnWidths.map((value, index) => { const fixed = getColumnFixedWidth(index); return fixed != null ? fixed : Math.max(isPHeaderColumn(index) ? P_COLUMN_MIN_WIDTH : MANUAL_NARROW_COLUMN_WIDTH, Number(value) || getColumnMinWidth(index)); });
+          const migratePColumnWidths = Number(obj.version || 0) < P_COLUMN_WIDTH_PROGRESS_VERSION;
+          columnWidths = obj.columnWidths.map((value, index) => {
+            const fixed = getColumnFixedWidth(index);
+            if (fixed != null) return fixed;
+            if (isPHeaderColumn(index) && migratePColumnWidths) return P_COLUMN_MIN_WIDTH;
+            return Math.max(isPHeaderColumn(index) ? P_COLUMN_MIN_WIDTH : MANUAL_NARROW_COLUMN_WIDTH, Number(value) || getColumnMinWidth(index));
+          });
         }
         if (Array.isArray(obj.visibleColumns) && obj.visibleColumns.length === headers.length) {
           visibleColumns = obj.visibleColumns.map(value => value !== false);
