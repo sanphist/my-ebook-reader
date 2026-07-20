@@ -913,8 +913,9 @@ let coverMode = "none";
 let stickyColumnCount = 3;
 let filterInputTimer = null;
 let lastStorageError = "";
-const PROGRESS_VERSION = 3;
+const PROGRESS_VERSION = 4;
 const P_COLUMN_WIDTH_PROGRESS_VERSION = 3;
+const STICKY_COLUMN_PROGRESS_VERSION = 4;
 const STORAGE_PREFIX = "eliminate_words_progress_kk_";
 const FILTER_ALL = "__ALL__";
 const FILTER_BLANK = "__BLANK__";
@@ -1913,6 +1914,7 @@ function tryRestore() {
   const compatible = obj && (obj.hash === fileHash || restoredLegacy);
   if (compatible) {
     const migratePColumnWidths = Number(obj.version || 0) < P_COLUMN_WIDTH_PROGRESS_VERSION;
+    const migrateStickyColumns = Number(obj.version || 0) < STICKY_COLUMN_PROGRESS_VERSION;
     eliminatedWords = normalizeImportedStatus(obj.eliminatedWords);
     questionedWords = normalizeImportedStatus(obj.questionedWords || []);
     questionedWords.forEach(id => eliminatedWords.delete(id));
@@ -1932,9 +1934,9 @@ function tryRestore() {
     firstColHugeMode = obj.firstColHugeMode === true;
     studyFocusMode = typeof obj.studyFocusMode === "string" ? obj.studyFocusMode : "all";
     coverMode = ["word", "phonetic", "meaning"].includes(obj.coverMode) ? obj.coverMode : "none";
-    stickyColumnCount = [1, 2, 3, 4, 5].includes(Number(obj.stickyColumnCount)) ? Number(obj.stickyColumnCount) : 3;
+    stickyColumnCount = migrateStickyColumns ? 3 : ([1, 2, 3, 4, 5].includes(Number(obj.stickyColumnCount)) ? Number(obj.stickyColumnCount) : 3);
     document.getElementById("fileNotice").textContent = `已恢复 ${eliminatedWords.size + questionedWords.size} 条进度（叉叉 ${eliminatedWords.size}，问号 ${questionedWords.size}）${currentSheetName ? "：" + currentSheetName : ""}`;
-    if (restoredLegacy || migratePColumnWidths) saveProgress(true);
+    if (restoredLegacy || migratePColumnWidths || migrateStickyColumns) saveProgress(true);
     return true;
   }
   firstColHugeMode = false;
@@ -2047,7 +2049,7 @@ function importProgress() {
         firstColHugeMode = obj.firstColHugeMode === true;
         studyFocusMode = typeof obj.studyFocusMode === "string" ? obj.studyFocusMode : "all";
         coverMode = ["word", "phonetic", "meaning"].includes(obj.coverMode) ? obj.coverMode : "none";
-        stickyColumnCount = [1, 2, 3, 4, 5].includes(Number(obj.stickyColumnCount)) ? Number(obj.stickyColumnCount) : 3;
+        stickyColumnCount = Number(obj.version || 0) < STICKY_COLUMN_PROGRESS_VERSION ? 3 : ([1, 2, 3, 4, 5].includes(Number(obj.stickyColumnCount)) ? Number(obj.stickyColumnCount) : 3);
         undoStack = [];
         document.getElementById("pageSizeSelect").value = String(pageSize);
         applyCoverModeUI();
