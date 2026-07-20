@@ -80,6 +80,20 @@
     #resetBtn:hover { background: #d4e38b; }
     #clearProgressBtn { background: #c75b4d; color: #fff; margin-left: 6px; }
     #clearProgressBtn:hover { background: #a94438; }
+    #bottomActionBar { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+    #backToTopBtn {
+      margin-left: auto;
+      min-height: 36px;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 7px;
+      background: #4f9fcf;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    #backToTopBtn:hover { background: #367fad; }
     #undoBtn:disabled { opacity: 0.45; cursor: default; }
     #pageSizeSelect {
       border: 1px solid #b4e2b5;
@@ -341,6 +355,27 @@
     }
     .column-check input { width: 15px; height: 15px; }
     .column-check.filtered { border-color: #7ab76f; background: #f9fff4; }
+    .manual-narrow-th .th-inner,
+    .manual-narrow-filter .header-filter-box { min-width: 0 !important; }
+    .manual-narrow-th .th-label {
+      font-size: 10px !important;
+      white-space: normal !important;
+      word-break: break-all !important;
+      overflow-wrap: anywhere !important;
+    }
+    .manual-narrow-filter .header-filter-text,
+    .manual-narrow-filter .header-filter-select {
+      min-width: 0 !important;
+      padding: 1px !important;
+      font-size: 8px !important;
+    }
+    .manual-narrow-td {
+      min-width: 0 !important;
+      padding: 3px 1px !important;
+      font-size: 12px !important;
+      word-break: break-all !important;
+      overflow-wrap: anywhere !important;
+    }
     .resizable-th, .resizable-filter-th { position: sticky; }
     .resizable-th.selected, .resizable-filter-th.selected { background: #cdecc0; }
     .resizable-th.touch-resize-active, .resizable-filter-th.touch-resize-active {
@@ -657,6 +692,25 @@
       width: 16px !important;
       min-width: 16px !important;
       max-width: 16px !important;
+      box-sizing: border-box !important;
+      padding-left: 1px !important;
+      padding-right: 1px !important;
+      overflow: hidden !important;
+    }
+    .uniform-narrow-col .th-inner,
+    .uniform-narrow-col .header-filter-box {
+      width: 14px !important;
+      min-width: 0 !important;
+      max-width: 14px !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+    }
+    .uniform-narrow-col .th-actions { display: none !important; }
+    .uniform-narrow-col .header-filter-text,
+    .uniform-narrow-col .header-filter-select {
+      min-width: 0 !important;
+      padding: 0 !important;
+      font-size: 7px !important;
     }
 
 @media (max-width: 900px) {
@@ -678,7 +732,7 @@
       .second-col-filter-huge .header-filter-select { font-size: 13px !important; }
     }
     @media (pointer: coarse) {
-      #btnBar button, #topBtns button, #resetBtn, #clearProgressBtn {
+      #btnBar button, #topBtns button, #resetBtn, #clearProgressBtn, #backToTopBtn {
         min-height: 44px;
         padding: 8px 13px;
         font-size: 15px;
@@ -770,6 +824,7 @@
     <div id="columnToolBar">
       <span id="selectedColumnLabel"></span>
       <button class="tool-btn" onclick="adjustSelectedColumnWidth(-40)">窄一点</button>
+      <button class="tool-btn" onclick="setSelectedColumnNarrowest()">最窄 30px</button>
       <button class="tool-btn" onclick="adjustSelectedColumnWidth(40)">宽一点</button>
       <button class="tool-btn" onclick="autoFitSelectedColumn()">自动列宽</button>
       <button class="tool-btn" id="toggleFirstColHugeBtn" onclick="toggleFirstColHugeMode()">首列超大</button>
@@ -808,9 +863,10 @@
   <div class="table-wrap">
     <table id="wordTable"></table>
   </div>
-  <div>
+  <div id="bottomActionBar">
     <button id="resetBtn" onclick="resetView()">重置视图</button>
     <button id="clearProgressBtn" onclick="clearLearningProgress()">清空学习进度</button>
+    <button id="backToTopBtn" onclick="backToPageTop()" aria-label="回到页面最顶部">↑ 回到最顶部</button>
   </div>
 </div>
 <div id="pageSliderWrap"><div id="pageSlider"></div></div>
@@ -861,16 +917,21 @@ const FILTER_BLANK = "__BLANK__";
 const FILTER_NONBLANK = "__NONBLANK__";
 const MIN_COLUMN_WIDTH = 96;
 const FIT_MIN_COLUMN_WIDTH = 68;
+const MANUAL_NARROW_COLUMN_WIDTH = 30;
+
+function isPHeaderColumn(index) {
+  return /^p/i.test(normalizeCell(headers[index]));
+}
 
 function getColumnMinWidth(index) {
-  if (index >= 5 && index <= 12) return 16;
+  if (isPHeaderColumn(index) || index >= 5 && index <= 12) return 16;
   if (index === 1) return 36;
   if (index === 2) return 56;
   return MIN_COLUMN_WIDTH;
 }
 
 function getColumnFixedWidth(index) {
-  if (index >= 5 && index <= 12) return 16;
+  if (isPHeaderColumn(index) || index >= 5 && index <= 12) return 16;
   return null;
 }
 
@@ -1572,6 +1633,17 @@ function autoFitSelectedColumn() {
   autoFitColumn(selectedColumnIndex);
 }
 
+function setSelectedColumnNarrowest() {
+  ensureSelectedColumn();
+  if (selectedColumnIndex < 0) return;
+  syncColumnWidths();
+  const fixed = getColumnFixedWidth(selectedColumnIndex);
+  columnWidths[selectedColumnIndex] = fixed != null ? fixed : MANUAL_NARROW_COLUMN_WIDTH;
+  saveProgress();
+  renderTable();
+  renderPagination();
+}
+
 function resetAllColumnWidths() {
   syncColumnWidths(true);
   renderTable();
@@ -1798,7 +1870,7 @@ function tryRestore() {
     currentPage = Math.max(1, Number(obj.currentPage) || 1);
     pageSize = [50, 100, 200, 300].includes(Number(obj.pageSize)) ? Number(obj.pageSize) : 100;
     if (Array.isArray(obj.columnWidths) && obj.columnWidths.length === headers.length) {
-      columnWidths = obj.columnWidths.map((value, index) => { const fixed = getColumnFixedWidth(index); return fixed != null ? fixed : Math.max(getColumnMinWidth(index), Number(value) || getColumnMinWidth(index)); });
+      columnWidths = obj.columnWidths.map((value, index) => { const fixed = getColumnFixedWidth(index); return fixed != null ? fixed : Math.max(MANUAL_NARROW_COLUMN_WIDTH, Number(value) || getColumnMinWidth(index)); });
     }
     if (Array.isArray(obj.visibleColumns) && obj.visibleColumns.length === headers.length) {
       visibleColumns = obj.visibleColumns.map(value => value !== false);
@@ -1906,7 +1978,7 @@ function importProgress() {
         questionedWords = normalizeImportedStatus(obj.questionedWords || []);
         questionedWords.forEach(id => eliminatedWords.delete(id));
         if (Array.isArray(obj.columnWidths) && obj.columnWidths.length === headers.length) {
-          columnWidths = obj.columnWidths.map((value, index) => { const fixed = getColumnFixedWidth(index); return fixed != null ? fixed : Math.max(getColumnMinWidth(index), Number(value) || getColumnMinWidth(index)); });
+          columnWidths = obj.columnWidths.map((value, index) => { const fixed = getColumnFixedWidth(index); return fixed != null ? fixed : Math.max(MANUAL_NARROW_COLUMN_WIDTH, Number(value) || getColumnMinWidth(index)); });
         }
         if (Array.isArray(obj.visibleColumns) && obj.visibleColumns.length === headers.length) {
           visibleColumns = obj.visibleColumns.map(value => value !== false);
@@ -2274,6 +2346,8 @@ function renderTable() {
     const sticky = stickyConfig.get(idx);
     const stickyClass = sticky ? `sticky-col header-cell${sticky.last ? " sticky-divider" : ""}` : "";
     const selectedClass = selectedColumnIndex === idx ? " selected" : "";
+    const narrowClass = columnWidths[idx] <= MANUAL_NARROW_COLUMN_WIDTH && getColumnFixedWidth(idx) == null ? " manual-narrow-th" : "";
+    const fixedNarrowClass = getColumnFixedWidth(idx) === 16 ? " uniform-narrow-col" : "";
     const studyClass = isWordColumn
       ? ` study-col-1 first-col-emphasis${firstColHugeMode ? " first-col-huge" : ""}`
       : isPhoneticColumn
@@ -2281,7 +2355,7 @@ function renderTable() {
         : "";
     const stickyStyle = sticky ? ` style="left:${sticky.left}px;"` : "";
     return `
-      <th id="header-cell-${idx}" class="resizable-th${idx === 1 ? " col2-fixed-th" : ""}${idx >= 13 ? " uniform-study-th" : ""}${idx >= 5 && idx <= 12 ? " uniform-study-th" : ""}${idx === 6 ? " col-7-purple" : ""}${idx === 7 ? " col-8-light-orange" : ""}${idx === 8 ? " col-9-light-purple" : ""}${selectedClass}${studyClass} ${stickyClass}"${stickyStyle} onclick="selectColumn(${idx})">
+      <th id="header-cell-${idx}" class="resizable-th${idx === 1 ? " col2-fixed-th" : ""}${idx >= 13 ? " uniform-study-th" : ""}${idx >= 5 && idx <= 12 ? " uniform-study-th" : ""}${idx === 6 ? " col-7-purple" : ""}${idx === 7 ? " col-8-light-orange" : ""}${idx === 8 ? " col-9-light-purple" : ""}${selectedClass}${studyClass}${narrowClass}${fixedNarrowClass} ${stickyClass}"${stickyStyle} onclick="selectColumn(${idx})">
         <div class="th-inner">
           <span class="th-label">${escapeHtml(header)} ${flag}</span>
           <span class="th-actions">
@@ -2302,6 +2376,8 @@ function renderTable() {
     const sticky = stickyConfig.get(idx);
     const stickyClass = sticky ? `sticky-col filter-cell${sticky.last ? " sticky-divider" : ""}` : "";
     const selectedClass = selectedColumnIndex === idx ? " selected" : "";
+    const narrowClass = columnWidths[idx] <= MANUAL_NARROW_COLUMN_WIDTH && getColumnFixedWidth(idx) == null ? " manual-narrow-filter" : "";
+    const fixedNarrowClass = getColumnFixedWidth(idx) === 16 ? " uniform-narrow-col" : "";
     const studyClass = isWordColumn
       ? ` study-col-1 first-col-filter${firstColHugeMode ? " first-col-filter-huge" : ""}`
       : isPhoneticColumn
@@ -2309,7 +2385,7 @@ function renderTable() {
         : "";
     const stickyStyle = sticky ? ` style="left:${sticky.left}px;"` : "";
     return `
-      <th class="resizable-filter-th${idx === 1 ? " col2-fixed-filter" : ""}${idx >= 13 ? " uniform-study-filter" : ""}${idx >= 5 && idx <= 12 ? " uniform-study-filter" : ""}${idx === 6 ? " col-7-purple" : ""}${idx === 7 ? " col-8-light-orange" : ""}${idx === 8 ? " col-9-light-purple" : ""}${selectedClass}${studyClass} ${stickyClass}"${stickyStyle}>
+      <th class="resizable-filter-th${idx === 1 ? " col2-fixed-filter" : ""}${idx >= 13 ? " uniform-study-filter" : ""}${idx >= 5 && idx <= 12 ? " uniform-study-filter" : ""}${idx === 6 ? " col-7-purple" : ""}${idx === 7 ? " col-8-light-orange" : ""}${idx === 8 ? " col-9-light-purple" : ""}${selectedClass}${studyClass}${narrowClass}${fixedNarrowClass} ${stickyClass}"${stickyStyle}>
         <div class="header-filter-box">
           <input class="header-filter-text" value="${escapeHtml(columnTextFilters[idx] || "")}" placeholder="支持空格或关系 + * ?" oninput="setColumnTextFilter(${idx}, this.value)">
           <select id="header-filter-select-${idx}" class="header-filter-select" onfocus="ensureExactOptionsLoaded(${idx})" onpointerdown="ensureExactOptionsLoaded(${idx})" onchange="setColumnExactFilter(${idx}, this.value)" ${selectValue === "__LAZY__" ? "" : ""}>${optionsHtml}</select>
@@ -2331,6 +2407,8 @@ function renderTable() {
           const isPhoneticColumn = idx === getPhoneticColumnIndex();
           const sticky = stickyConfig.get(idx);
           const stickyClass = sticky ? `sticky-col${sticky.last ? " sticky-divider" : ""}` : "";
+          const narrowClass = columnWidths[idx] <= MANUAL_NARROW_COLUMN_WIDTH && getColumnFixedWidth(idx) == null ? " manual-narrow-td" : "";
+          const fixedNarrowClass = getColumnFixedWidth(idx) === 16 ? " uniform-narrow-col" : "";
           const studyClass = isWordColumn
             ? ` study-col-1 first-col-emphasis${firstColHugeMode ? " first-col-huge" : ""}`
             : isPhoneticColumn
@@ -2339,7 +2417,7 @@ function renderTable() {
           const stateBackground = eliminatedRow ? "background:#ffb46a;" : questionedRow ? "background:#ffd9d4;" : "";
           const stickyStyle = sticky ? ` style="left:${sticky.left}px;${stateBackground}"` : "";
           const roleClass = isWordColumn ? "word-role " : isPhoneticColumn ? "phonetic-role " : idx === getMeaningColumnIndex() ? "meaning-role " : "";
-          return `<td class="${roleClass}${idx >= 5 ? "uniform-study-td " : ""}${idx === 6 ? "col-7-purple " : ""}${idx === 7 ? "col-8-light-orange " : ""}${idx === 8 ? "col-9-light-purple " : ""}${stickyClass}${studyClass}"${stickyStyle}><span class="cell-text">${escapeHtml(row[idx])}</span></td>`;
+          return `<td class="${roleClass}${idx >= 5 ? "uniform-study-td " : ""}${idx === 6 ? "col-7-purple " : ""}${idx === 7 ? "col-8-light-orange " : ""}${idx === 8 ? "col-9-light-purple " : ""}${stickyClass}${studyClass}${narrowClass}${fixedNarrowClass}"${stickyStyle}><span class="cell-text">${escapeHtml(row[idx])}</span></td>`;
         }).join("")}
         <td class="action-cell" data-action-row="${escapeHtml(wordKey)}">
           <div class="action-buttons">
@@ -2582,6 +2660,10 @@ function exportCSV(type) {
   link.download = `${fileLabel}${currentSheetName ? "_" + currentSheetName : ""}.csv`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function backToPageTop() {
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function resetView() {
