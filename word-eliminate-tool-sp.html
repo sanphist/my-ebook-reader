@@ -76,6 +76,8 @@
     }
     #btnBar button:hover, #topBtns button:hover, #resetBtn:hover { background: #6fd590; }
     #clearHeaderFiltersBtn { background: #7ab76f; }
+    #clearOldSettingsBtn { background: #d9822b; }
+    #clearOldSettingsBtn:hover { background: #b7651d; }
     #resetBtn { background: #b7c96c; color: #3a400e; margin-top: 8px; }
     #resetBtn:hover { background: #d4e38b; }
     #clearProgressBtn { background: #c75b4d; color: #fff; margin-left: 6px; }
@@ -819,6 +821,7 @@
     <button onclick="doSearch()">关键词查找</button>
     <button onclick="clearSearch()">清除查询</button>
     <button id="clearHeaderFiltersBtn" onclick="clearHeaderFilters()">清空表头筛选</button>
+    <button id="clearOldSettingsBtn" onclick="clearOldSettings()">清空旧设置</button>
     <button onclick="toggleColumnPanel()" id="toggleColumnPanelBtn">列显示</button>
     <select id="pageSizeSelect" aria-label="每页显示条数" onchange="setPageSize(this.value)">
       <option value="50">每页 50</option>
@@ -2808,6 +2811,59 @@ function exportCSV(type) {
 
 function backToPageTop() {
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function clearOldSettings() {
+  if (!headers.length || !fileName) return alert("请先导入 Excel 文件");
+  if (!confirm("确定清空这个 Excel 所有工作表的旧界面设置吗？叉叉、问号等学习进度会保留。")) return;
+  const keyPrefix = `${STORAGE_PREFIX}${fileName}_`;
+  const settingFields = [
+    "currentPage", "pageSize", "columnWidths", "visibleColumns",
+    "firstColHugeMode", "studyFocusMode", "coverMode", "stickyColumnCount"
+  ];
+  let cleanedCount = 0;
+  try {
+    for (let index = 0; index < localStorage.length; index++) {
+      const key = localStorage.key(index);
+      if (!key || !key.startsWith(keyPrefix)) continue;
+      let saved;
+      try { saved = JSON.parse(localStorage.getItem(key) || "null"); } catch { saved = null; }
+      if (!saved || typeof saved !== "object") continue;
+      settingFields.forEach(field => delete saved[field]);
+      saved.updatedAt = new Date().toISOString();
+      localStorage.setItem(key, JSON.stringify(saved));
+      cleanedCount++;
+    }
+  } catch (error) {
+    return alert(`清空旧设置失败：${error && error.message ? error.message : "浏览器存储不可用"}`);
+  }
+
+  hideEliminated = false;
+  globalSearchText = "";
+  currentPage = 1;
+  pageSize = 100;
+  selectedColumnIndex = -1;
+  firstColHugeMode = false;
+  studyFocusMode = "all";
+  preFocusVisibleColumns = null;
+  columnPanelVisible = false;
+  coverMode = "none";
+  stickyColumnCount = 3;
+  clearFilterState();
+  clearFilterOptionCache();
+  columnWidths = [];
+  visibleColumns = [];
+  syncColumnWidths(true);
+  syncVisibleColumns(true);
+  ensureSelectedColumn();
+  document.getElementById("toggleHideBtn").textContent = "隐藏已消灭单词";
+  document.getElementById("searchBox").value = "";
+  document.getElementById("sortSelect").value = "origin";
+  document.getElementById("pageSizeSelect").value = "100";
+  applyCoverModeUI();
+  saveProgress(true);
+  renderAll();
+  document.getElementById("fileNotice").textContent = `已清空 ${Math.max(cleanedCount, 1)} 个工作表的旧设置，学习进度已保留`;
 }
 
 function resetView() {
